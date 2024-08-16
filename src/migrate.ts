@@ -6,10 +6,12 @@ import {
 	Migrator,
 	PostgresDialect,
 	FileMigrationProvider,
+	NO_MIGRATIONS,
+	MigrationResult,
 } from "kysely";
 import { db } from "./database";
 
-async function migrateToLatest() {
+async function migrate(direction: "up" | "down") {
 	const migrationFolder = path.join(__dirname, "/migrations");
 	console.log({ migrationFolder });
 	const migrator = new Migrator({
@@ -22,7 +24,15 @@ async function migrateToLatest() {
 		}),
 	});
 
-    const { error, results } = await migrator.migrateToLatest();
+	let error = undefined;
+	let results: MigrationResult[] | undefined = undefined;
+
+	if (direction === "up") {
+		({ error, results } = await migrator.migrateToLatest());
+	}
+	if (direction === "down") {
+		({ error, results } = await migrator.migrateTo(NO_MIGRATIONS));
+	}
 
 	results?.forEach((it) => {
 		if (it.status === "Success") {
@@ -43,4 +53,4 @@ async function migrateToLatest() {
 	await db.destroy();
 }
 
-migrateToLatest();
+migrate(process.argv[2] as "up" | "down");
