@@ -1,0 +1,148 @@
+{
+    "name": "liker-event-log",
+	"dockerComposeFile": ["../docker-compose.yml", "docker-compose.yml"],
+	"service": "liker_event_log",
+	"workspaceFolder": "/workspace",
+    // "postCreateCommand": "npm ci",
+	// https://tjtelan.com/blog/how-to-link-multiple-docker-compose-via-network/
+	// https://containers.dev/guide/dockerfile
+	// https://github.com/microsoft/vscode-remote-release/issues/2485
+	"initializeCommand": "docker network create liker || echo 'Already exists'",
+    "customizations": {
+		"vscode": {
+			"settings": {
+				"terminal.integrated.shellArgs.osx": [],
+				"workbench.colorTheme": "Default Dark+",
+				"workbench.startupEditor": "none",
+				"git.autofetch": true,
+				"editor.formatOnSave": true,
+				"editor.formatOnType": true,
+				"editor.formatOnPaste": false,
+				"editor.renderWhitespace": "all",
+				"code-eol.newlineCharacter": "¬",
+				"code-eol.returnCharacter": "¤",
+				"code-eol.crlfCharacter": "¤¬",
+				"[typescript]": {
+					"editor.defaultFormatter": "esbenp.prettier-vscode"
+				},
+				"[json]": {
+					"editor.defaultFormatter": "esbenp.prettier-vscode"
+				},
+				"[html]": {
+					"editor.defaultFormatter": "esbenp.prettier-vscode"
+				},
+				"[sql]": {
+					"editor.defaultFormatter": "cweijan.vscode-mysql-client2"
+				},
+				"prettier.tabWidth": 4,
+				"prettier.useTabs": true,
+				"[yaml]": {
+					"editor.autoIndent": "advanced"
+				},
+				"redhat.telemetry.enabled": false,
+				"security.workspace.trust.untrustedFiles": "open",
+				"[javascript]": {
+					"editor.defaultFormatter": "vscode.typescript-language-features"
+				},
+				"[markdown]": {
+					"editor.defaultFormatter": "esbenp.prettier-vscode"
+				},
+				"[css]": {
+					"editor.defaultFormatter": "esbenp.prettier-vscode"
+				},
+				"[typescriptreact]": {
+					"editor.defaultFormatter": "esbenp.prettier-vscode"
+				},
+				"editor.inlineSuggest.enabled": true,
+				"github.copilot.enable": {
+					"*": true,
+					"plaintext": false,
+					"markdown": true,
+					"scminput": false
+				},
+				"git.confirmSync": false,
+				"[dockerfile]": {
+					"editor.defaultFormatter": "ms-azuretools.vscode-docker"
+				},
+				"files.trimTrailingWhitespace": true,
+				"files.insertFinalNewline": true,
+				"editor.rulers": [
+					120
+				],
+				"terminal.integrated.profiles.osx": {
+					"bash": {
+						"path": "bash",
+						"args": [],
+						"icon": "terminal-bash"
+					},
+					"zsh": {
+						"path": "zsh",
+						"args": [
+							"-l"
+						]
+					},
+					"fish": {
+						"path": "fish",
+						"args": [
+							"-l"
+						]
+					},
+					"tmux": {
+						"path": "tmux",
+						"icon": "terminal-tmux"
+					},
+					"pwsh": {
+						"path": "pwsh",
+						"icon": "terminal-powershell"
+					}
+				},
+				"files.exclude": {
+					"**/.git": false
+				},
+				"window.zoomLevel": -1
+			},
+			"extensions": [
+				"adpyke.vscode-sql-formatter",
+				"andys8.jest-snippets",
+				"codezombiech.gitignore",
+				"cweijan.vscode-mysql-client2",
+				"dbaeumer.vscode-eslint",
+				"DigitalBrainstem.javascript-ejs-support",
+				"eamodio.gitlens",
+				"EditorConfig.EditorConfig",
+				"esbenp.prettier-vscode",
+				"FallenMax.mithril-emmet",
+				"foxundermoon.shell-format",
+				"GitHub.codespaces",
+				"GitHub.copilot",
+				"GitHub.copilot-chat",
+				"github.vscode-github-actions",
+				"GitHub.vscode-pull-request-github",
+				"jerriepelser.copy-markdown-as-html",
+				"JoeBerria.statusbarerror",
+				"kenhowardpdx.vscode-gist",
+				"mattpocock.ts-error-translator",
+				"medo64.render-crlf",
+				"mhutchie.git-graph",
+				"ms-azuretools.vscode-docker",
+				"ms-mssql.data-workspace-vscode",
+				"ms-mssql.mssql",
+				"ms-mssql.sql-bindings-vscode",
+				"ms-mssql.sql-database-projects-vscode",
+				"ms-vscode-remote.remote-containers",
+				"ms-vscode-remote.remote-ssh",
+				"ms-vscode-remote.remote-ssh-edit",
+				"ms-vscode-remote.remote-wsl",
+				"ms-vscode-remote.vscode-remote-extensionpack",
+				"ms-vscode.remote-explorer",
+				"ms-vscode.remote-server",
+				"redhat.vscode-yaml",
+				"rogalmic.bash-debug",
+				"stylelint.vscode-stylelint",
+				"svipas.prettier-plus",
+				"timonwong.shellcheck",
+				"yzhang.markdown-all-in-one"
+			]
+		}
+	}
+}

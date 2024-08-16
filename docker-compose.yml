@@ -1,0 +1,25 @@
+services:
+    liker_event_log:
+        image: node:20
+        depends_on:
+            - db
+        environment:
+            - NODE_ENV=${LIKER_EVENT_LOG_NODE_ENV}
+            - LIKER_EVENT_LOG_DB_HOSTNAME=${LIKER_EVENT_LOG_DB_HOSTNAME}
+            - LIKER_EVENT_LOG_DB_NAME=${LIKER_EVENT_LOG_DB_NAME}
+            - LIKER_EVENT_LOG_DB_USER=${LIKER_EVENT_LOG_DB_USER}
+            - LIKER_EVENT_LOG_DB_PASSWORD=${LIKER_EVENT_LOG_DB_PASSWORD}
+        ports:
+            - ${LIKER_EVENT_LOG_HOST_PORT}:80
+    db:
+        image: mysql:latest
+        restart: always
+        volumes:
+            - db_data:/var/lib/mysql
+        environment:
+            MYSQL_ROOT_PASSWORD: ${LIKER_EVENT_LOG_DB_PASSWORD}
+            MYSQL_DATABASE: ${LIKER_EVENT_LOG_DB_NAME}
+            MYSQL_USER: ${LIKER_EVENT_LOG_DB_USER}
+            MYSQL_PASSWORD: ${LIKER_EVENT_LOG_DB_PASSWORD}
+volumes:
+    db_data:

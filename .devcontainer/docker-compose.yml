@@ -1,0 +1,19 @@
+services:
+    liker_event_log:
+        build:
+            context: ./.devcontainer
+            dockerfile: Dockerfile
+        command: sleep infinity
+        volumes:
+            - ./:/workspace
+    adminer:
+        image: adminer
+        depends_on:
+            - db
+        restart: always
+        ports:
+            - ${LIKER_EVENT_LOG_ADMINER_HOST_PORT}:8080
+networks:
+    default:
+        external: true
+        name: 'liker'
