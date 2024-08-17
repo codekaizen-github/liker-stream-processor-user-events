@@ -30,8 +30,8 @@ async function migrate(direction: "up" | "down") {
 	if (direction === "up") {
 		({ error, results } = await migrator.migrateToLatest());
 	}
-	if (direction === "down") {
-		({ error, results } = await migrator.migrateTo(NO_MIGRATIONS));
+    if (direction === "down") {
+        ({ error, results } = await migrator.migrateTo(NO_MIGRATIONS));
 	}
 
 	results?.forEach((it) => {

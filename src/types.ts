@@ -1,7 +1,8 @@
 import { Generated, Insertable, Selectable, Updateable } from "kysely";
 
 export interface Database {
-	logRecord: LogRecordTable;
+    logRecord: LogRecordTable;
+    httpSubscription: HttpSubscriptionTable;
 }
 
 // This interface describes the `person` table to Kysely. Table
@@ -25,3 +26,13 @@ export interface LogRecordTable {
 export type LogRecord = Selectable<LogRecordTable>;
 export type NewLogRecord = Insertable<LogRecordTable>;
 export type LogRecordUpdate = Updateable<LogRecordTable>;
+
+export interface HttpSubscriptionTable {
+    id: Generated<number>;
+    url: string;
+}
+
+export type HttpSubscription = Selectable<HttpSubscriptionTable>;
+export type NewHttpSubscription = Insertable<HttpSubscriptionTable>;
+export type HttpSubscriptionUpdate = Updateable<HttpSubscriptionTable>;
+

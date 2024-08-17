@@ -18,6 +18,20 @@ export async function findLogRecords(criteria: Partial<LogRecord>) {
 	return await query.selectAll().execute();
 }
 
+export async function findLogRecordsGreaterThanLogRecordId(id: number) {
+	let query = db.selectFrom("logRecord").where("id", ">", id);
+	return await query.selectAll().execute();
+}
+
+export async function getMostRecentLogRecord() {
+	return await db
+		.selectFrom("logRecord")
+		.orderBy("id", "desc")
+		.limit(1)
+		.selectAll()
+		.executeTakeFirst();
+}
+
 export async function updateLogRecord(id: number, updateWith: LogRecordUpdate) {
 	await db
 		.updateTable("logRecord")
