@@ -3,6 +3,7 @@ import { Generated, Insertable, Selectable, Updateable } from "kysely";
 export interface Database {
 	streamOut: StreamOutTable;
 	httpSubscriber: HttpSubscriberTable;
+	upstreamControl: UpstreamControlTable;
 }
 
 // This interface describes the `person` table to Kysely. Table
@@ -35,3 +36,12 @@ export interface HttpSubscriberTable {
 export type HttpSubscription = Selectable<HttpSubscriberTable>;
 export type NewHttpSubscription = Insertable<HttpSubscriberTable>;
 export type HttpSubscriptionUpdate = Updateable<HttpSubscriberTable>;
+
+export interface UpstreamControlTable {
+	id: Generated<number>;
+	streamInId: number;
+}
+
+export type UpstreamControl = Selectable<UpstreamControlTable>;
+export type NewUpstreamControl = Insertable<UpstreamControlTable>;
+export type UpstreamControlUpdate = Updateable<UpstreamControlTable>;

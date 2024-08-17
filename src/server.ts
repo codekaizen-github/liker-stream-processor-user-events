@@ -12,7 +12,8 @@ import {
 	deleteHttpSubscriber,
 	findHttpSubscribers,
 } from "./httpSubscriberStore";
-import { notifySubscribers, subscribe } from "./subscriptions";
+import { notifySubscribers, poll, subscribe } from "./subscriptions";
+import { getMostRecentUpstreamControl } from "./upstreamControlStore";
 
 // Create an Express application
 const app = express();
@@ -28,38 +29,78 @@ app.get("/", (req, res) => {
 	res.send("Hello, TypeScript + Node.js + Express!");
 });
 
-app.get("/fencingToken", async (req, res) => {
-	const result = await createStreamOut({
-		data: JSON.stringify({ type: "fencing-token-requested" }),
-	});
-	if (result === undefined) {
-		return res.status(500).send();
-	}
-	return res.json({
-		fencingToken: result.id,
-	});
-});
-
 app.post("/streamIn", async (req, res) => {
-	const insertData = {
-		data: JSON.stringify(req.body.data),
-	};
-	const result = await createStreamOut(insertData);
-	if (result === undefined) {
-		return res.status(500).send();
-	}
+	/*
+	    {
+        "id": 1,
+        "data": {
+            "type": "test",
+            "payload": {
+                "key": "value"
+            }
+        }
+    }
+	*/
+	const input = req.body;
+	await db.transaction().execute(async (trx) => {
+		const upstreamControl = await getMostRecentUpstreamControl(trx);
+		const upstreamControlStreamInId = upstreamControl
+			? upstreamControl.streamInId
+			: 0;
+		if (input.id <= upstreamControlStreamInId) {
+			return res.status(200).send();
+		}
+		if (input.id > upstreamControlStreamInId + 1) {
+			if (
+				process.env
+					.LIKER_STREAM_PROCESSOR_DEDUPLICATOR_UPSTREAM_URL_STREAM_OUT ===
+				undefined
+			) {
+				throw new Error("Upstream URL is not defined");
+			}
+			const pollResults = await poll(
+				process.env
+					.LIKER_STREAM_PROCESSOR_DEDUPLICATOR_UPSTREAM_URL_STREAM_OUT,
+				upstreamControlStreamInId
+			);
+			if (pollResults.length === 0) {
+				return res.status(404).send();
+			}
+			for (const pollResult of pollResults) {
+				const newStreamOut = { data: JSON.stringify(pollResult.data) };
+				await createStreamOut(trx, newStreamOut);
+			}
+		} else {
+			const newStreamOut = { data: JSON.stringify(input.data) };
+			await createStreamOut(trx, newStreamOut);
+		}
+		await trx
+			.insertInto("upstreamControl")
+			.values({
+				streamInId: input.id,
+			})
+			.execute();
+	});
+	// if (result === undefined) {
+	// 	return res.status(500).send();
+	// }
 	// non-blocking
-	notifySubscribers(db, result);
+	// notifySubscribers(db, result);
 	return res.status(201).send();
 });
 
 app.get("/streamOut", async (req, res) => {
 	// Get the query parameter 'afterId' from the request
 	const afterId = Number(req.query.afterId);
+	await db.transaction().execute(async (trx) => {
+		const records = await findStreamOutsGreaterThanStreamOutId(
+			trx,
+			afterId
+		);
+		return res.json(records);
+	});
 	// Find all log records with an ID greater than 'afterId'
-	const records = await findStreamOutsGreaterThanStreamOutId(afterId);
 	// Send the records to the client
-	return res.json(records);
 });
 
 app.post("/httpSubscriber/register", async (req, res) => {
@@ -121,10 +162,12 @@ app.listen(port, () => {
 
 // Get the most recent log record and notify subscribers
 (async () => {
-	const record = await getMostRecentStreamOut();
-	if (record === undefined) {
-		return;
-	}
-	// non-blocking
-	notifySubscribers(db, record);
+	await db.transaction().execute(async (trx) => {
+		const record = await getMostRecentStreamOut(trx);
+		if (record === undefined) {
+			return;
+		}
+		// non-blocking
+		notifySubscribers(db, record);
+	});
 })();

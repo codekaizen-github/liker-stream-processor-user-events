@@ -50,3 +50,13 @@ export async function subscribe(
 		console.error(e);
 	}
 }
+
+export async function poll(url: string, afterId: number): Promise<any> {
+	try {
+		const response = await fetch(`${url}?afterId=${afterId}`);
+		const streamOuts = await response.json();
+		return streamOuts;
+	} catch (e) {
+		console.error(e);
+	}
+}
