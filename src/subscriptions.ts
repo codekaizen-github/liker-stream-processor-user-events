@@ -1,23 +1,23 @@
 import { Kysely } from "kysely";
-import { Database, Stream } from "./types";
+import { Database, StreamOut } from "./types";
 import { findHttpSubscribers } from "./httpSubscriberStore";
 
 export async function notifySubscribers(
 	db: Kysely<Database>,
-	stream: Stream
+	streamOut: StreamOut
 ): Promise<void> {
 	await db.transaction().execute(async (trx) => {
 		const subscriptions = await findHttpSubscribers(trx, {});
 		for (const subscription of subscriptions) {
 			// non-blocking
-			notifySubscriberUrl(subscription.url, stream);
+			notifySubscriberUrl(subscription.url, streamOut);
 		}
 	});
 }
 
 export async function notifySubscriberUrl(
 	url: string,
-	stream: Stream
+	streamOut: StreamOut
 ): Promise<void> {
 	try {
 		await fetch(url, {
@@ -25,7 +25,7 @@ export async function notifySubscriberUrl(
 			headers: {
 				"Content-Type": "application/json",
 			},
-			body: JSON.stringify(stream),
+			body: JSON.stringify(streamOut),
 		});
 	} catch (e) {
 		console.error(e);

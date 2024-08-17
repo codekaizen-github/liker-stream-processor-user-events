@@ -3,10 +3,10 @@ import express from "express";
 import { env } from "process";
 import { db } from "./database";
 import {
-	createStream,
-	findStreamsGreaterThanStreamId,
-	getMostRecentStream,
-} from "./streamStore";
+	createStreamOut,
+	findStreamOutsGreaterThanStreamOutId,
+	getMostRecentStreamOut,
+} from "./streamOutStore";
 import {
 	createHttpSubscriber,
 	deleteHttpSubscriber,
@@ -29,7 +29,7 @@ app.get("/", (req, res) => {
 });
 
 app.get("/fencingToken", async (req, res) => {
-	const result = await createStream({
+	const result = await createStreamOut({
 		data: JSON.stringify({ type: "fencing-token-requested" }),
 	});
 	if (result === undefined) {
@@ -40,11 +40,11 @@ app.get("/fencingToken", async (req, res) => {
 	});
 });
 
-app.post("/stream", async (req, res) => {
+app.post("/streamIn", async (req, res) => {
 	const insertData = {
 		data: JSON.stringify(req.body.data),
 	};
-	const result = await createStream(insertData);
+	const result = await createStreamOut(insertData);
 	if (result === undefined) {
 		return res.status(500).send();
 	}
@@ -53,11 +53,11 @@ app.post("/stream", async (req, res) => {
 	return res.status(201).send();
 });
 
-app.get("/stream", async (req, res) => {
+app.get("/streamOut", async (req, res) => {
 	// Get the query parameter 'afterId' from the request
 	const afterId = Number(req.query.afterId);
 	// Find all log records with an ID greater than 'afterId'
-	const records = await findStreamsGreaterThanStreamId(afterId);
+	const records = await findStreamOutsGreaterThanStreamOutId(afterId);
 	// Send the records to the client
 	return res.json(records);
 });
@@ -108,20 +108,20 @@ app.listen(port, () => {
 	}
 	if (
 		process.env
-			.LIKER_STREAM_PROCESSOR_DEDUPLICATOR_SELF_CALLBACK_URL_STREAM ===
+			.LIKER_STREAM_PROCESSOR_DEDUPLICATOR_CALLBACK_URL_STREAM_IN ===
 		undefined
 	) {
 		return;
 	}
 	subscribe(
 		process.env.LIKER_STREAM_PROCESSOR_DEDUPLICATOR_UPSTREAM_URL_REGISTER,
-		process.env.LIKER_STREAM_PROCESSOR_DEDUPLICATOR_SELF_CALLBACK_URL_STREAM
+		process.env.LIKER_STREAM_PROCESSOR_DEDUPLICATOR_CALLBACK_URL_STREAM_IN
 	);
 })();
 
 // Get the most recent log record and notify subscribers
 (async () => {
-	const record = await getMostRecentStream();
+	const record = await getMostRecentStreamOut();
 	if (record === undefined) {
 		return;
 	}

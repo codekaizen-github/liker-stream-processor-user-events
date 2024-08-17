@@ -2,7 +2,7 @@ import { Kysely, sql } from "kysely";
 
 export async function up(db: Kysely<any>): Promise<void> {
 	await db.schema
-		.createTable("stream")
+		.createTable("streamOut")
 		.addColumn("id", "integer", (col) => col.primaryKey().autoIncrement())
 		// Add an arbitrary JSON column
 		.addColumn("data", "json", (col) => col.notNull())
@@ -15,6 +15,6 @@ export async function up(db: Kysely<any>): Promise<void> {
 }
 
 export async function down(db: Kysely<any>): Promise<void> {
-	await db.schema.dropTable("stream").execute();
+	await db.schema.dropTable("streamOut").execute();
 	await db.schema.dropTable("httpSubscriber").execute();
 }
