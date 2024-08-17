@@ -3,10 +3,16 @@
 	"version": "1.0.0",
 	"main": "index.js",
 	"scripts": {
-		"start": "node dist/server.js",
-		"build": "tsc",
-		"watchTypes": "tsc --watch",
-		"watchOutput": "nodemon dist/server.js"
+		"type": "tsc",
+		"serve": "node dist/server.js",
+		"migrate": "node dist/migrate.js",
+		"quickstart": "npm run serve",
+		"start": "npm run migrate && npm run serve",
+		"dev:type": "tsc --watch",
+		"dev:serve": "nodemon dist/server.js",
+		"dev:migrate": "nodemon dist/migrate.js",
+		"dev:quickstart": "concurrently -k -r \"npm run dev:type\" \"npm run dev:serve\"",
+		"dev:start": "concurrently -k -r \"npm run dev:type\" \"npm run dev:migrate\" \"npm run dev:serve\""
 	},
 	"keywords": [],
 	"author": "",
@@ -15,6 +21,7 @@
 	"devDependencies": {
 		"@types/express": "^4.17.21",
 		"@types/node": "^22.3.0",
+		"concurrently": "^8.2.2",
 		"nodemon": "^3.1.4",
 		"typescript": "^5.5.4"
 	},

@@ -7,22 +7,22 @@ import {
 	Database,
 } from "./types";
 
-export async function findHttpSubscriptionById(
+export async function findHttpSubscriberById(
 	trx: Transaction<Database>,
 	id: number
 ) {
 	return await trx
-		.selectFrom("httpSubscription")
+		.selectFrom("httpSubscriber")
 		.where("id", "=", id)
 		.selectAll()
 		.executeTakeFirst();
 }
 
-export async function findHttpSubscriptions(
+export async function findHttpSubscribers(
 	trx: Transaction<Database>,
 	criteria: Partial<HttpSubscription>
 ) {
-	let query = trx.selectFrom("httpSubscription");
+	let query = trx.selectFrom("httpSubscriber");
 
 	if (criteria.id) {
 		query = query.where("id", "=", criteria.id); // Kysely is immutable, you must re-assign!
@@ -35,39 +35,39 @@ export async function findHttpSubscriptions(
 	return await query.selectAll().execute();
 }
 
-export async function updateHttpSubscription(
+export async function updateHttpSubscribers(
 	trx: Transaction<Database>,
 	id: number,
 	updateWith: HttpSubscriptionUpdate
 ) {
 	await db
-		.updateTable("httpSubscription")
+		.updateTable("httpSubscriber")
 		.set(updateWith)
 		.where("id", "=", id)
 		.execute();
 }
 
-export async function createHttpSubscription(
+export async function createHttpSubscriber(
 	trx: Transaction<Database>,
-	httpSubscription: NewHttpSubscription
+	httpSubscriber: NewHttpSubscription
 ) {
 	const { insertId } = await db
-		.insertInto("httpSubscription")
-		.values(httpSubscription)
+		.insertInto("httpSubscriber")
+		.values(httpSubscriber)
 		.executeTakeFirstOrThrow();
 
-	return await findHttpSubscriptionById(trx, Number(insertId!));
+	return await findHttpSubscriberById(trx, Number(insertId!));
 }
 
-export async function deleteHttpSubscription(
+export async function deleteHttpSubscriber(
 	trx: Transaction<Database>,
 	id: number
 ) {
-	const httpSubscription = await findHttpSubscriptionById(trx, id);
+	const httpSubscriber = await findHttpSubscriberById(trx, id);
 
-	if (httpSubscription) {
-		await db.deleteFrom("httpSubscription").where("id", "=", id).execute();
+	if (httpSubscriber) {
+		await db.deleteFrom("httpSubscriber").where("id", "=", id).execute();
 	}
 
-	return httpSubscription;
+	return httpSubscriber;
 }

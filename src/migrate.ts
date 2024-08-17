@@ -13,7 +13,6 @@ import { db } from "./database";
 
 async function migrate(direction: "up" | "down") {
 	const migrationFolder = path.join(__dirname, "/migrations");
-	console.log({ migrationFolder });
 	const migrator = new Migrator({
 		db,
 		provider: new FileMigrationProvider({
@@ -27,11 +26,10 @@ async function migrate(direction: "up" | "down") {
 	let error = undefined;
 	let results: MigrationResult[] | undefined = undefined;
 
-	if (direction === "up") {
+	if (direction === "down") {
+		({ error, results } = await migrator.migrateTo(NO_MIGRATIONS));
+	} else {
 		({ error, results } = await migrator.migrateToLatest());
-	}
-    if (direction === "down") {
-        ({ error, results } = await migrator.migrateTo(NO_MIGRATIONS));
 	}
 
 	results?.forEach((it) => {

@@ -1,7 +1,7 @@
 {
-    "name": "liker-event-log",
+    "name": "liker-stream-processor-deduplicator",
 	"dockerComposeFile": ["../docker-compose.yml", "docker-compose.yml"],
-	"service": "liker_event_log",
+	"service": "liker_stream_processor_deduplicator",
 	"workspaceFolder": "/workspace",
     // "postCreateCommand": "npm ci",
 	// https://tjtelan.com/blog/how-to-link-multiple-docker-compose-via-network/

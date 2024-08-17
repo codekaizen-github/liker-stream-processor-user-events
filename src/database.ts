@@ -5,10 +5,10 @@ import { env } from "process";
 import e from "express";
 
 const poolConfig = {
-	database: env.LIKER_EVENT_LOG_DB_NAME,
-	host: env.LIKER_EVENT_LOG_DB_HOSTNAME,
-	user: env.LIKER_EVENT_LOG_DB_USER,
-	password: env.LIKER_EVENT_LOG_DB_PASSWORD,
+	database: env.LIKER_STREAM_PROCESSOR_DEDUPLICATOR_DB_NAME,
+	host: env.LIKER_STREAM_PROCESSOR_DEDUPLICATOR_DB_HOSTNAME,
+	user: env.LIKER_STREAM_PROCESSOR_DEDUPLICATOR_DB_USER,
+	password: env.LIKER_STREAM_PROCESSOR_DEDUPLICATOR_DB_PASSWORD,
 	port: 3306,
 	connectionLimit: 10,
 };
