@@ -25,9 +25,7 @@ export async function notifySubscriberUrl(
 			headers: {
 				"Content-Type": "application/json",
 			},
-			body: JSON.stringify({
-				stream,
-			}),
+			body: JSON.stringify(stream),
 		});
 	} catch (e) {
 		console.error(e);
@@ -39,7 +37,7 @@ export async function subscribe(
 	callbackUrl: string
 ): Promise<void> {
 	try {
-		await fetch(url, {
+		const response = await fetch(url, {
 			method: "POST",
 			headers: {
 				"Content-Type": "application/json",

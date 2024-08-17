@@ -1,7 +1,7 @@
 services:
     liker_stream_processor_deduplicator:
         build:
-            context: ./.devcontainer
+            context: .
             dockerfile: Dockerfile
         command: sleep infinity
         volumes:

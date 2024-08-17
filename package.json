@@ -10,9 +10,8 @@
 		"start": "npm run migrate && npm run serve",
 		"dev:type": "tsc --watch",
 		"dev:serve": "nodemon dist/server.js",
-		"dev:migrate": "nodemon dist/migrate.js",
 		"dev:quickstart": "concurrently -k -r \"npm run dev:type\" \"npm run dev:serve\"",
-		"dev:start": "concurrently -k -r \"npm run dev:type\" \"npm run dev:migrate\" \"npm run dev:serve\""
+		"dev:start": "npm run type && npm run migrate && concurrently -k -r \"npm run dev:type\" \"npm run dev:serve\""
 	},
 	"keywords": [],
 	"author": "",
