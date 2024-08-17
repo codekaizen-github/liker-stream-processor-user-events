@@ -6,6 +6,12 @@ services:
         command: sleep infinity
         volumes:
             - ./:/workspace
+        networks:
+            - liker_external_network
+            - liker_stream_processor_deduplicator_internal_network
+    db:
+        networks:
+            - liker_stream_processor_deduplicator_internal_network
     adminer:
         image: adminer
         depends_on:
@@ -13,7 +19,12 @@ services:
         restart: always
         ports:
             - ${LIKER_STREAM_PROCESSOR_DEDUPLICATOR_ADMINER_HOST_PORT}:8080
+        networks:
+            - liker_stream_processor_deduplicator_internal_network
 networks:
-    default:
+    liker_external_network:
         external: true
         name: "liker"
+    liker_stream_processor_deduplicator_internal_network:
+        external: false
+        name: "liker_stream_processor_deduplicator_internal_network"
