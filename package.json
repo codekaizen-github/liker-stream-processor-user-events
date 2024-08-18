@@ -1,32 +1,33 @@
 {
-	"name": "workspace",
-	"version": "1.0.0",
-	"main": "index.js",
-	"scripts": {
-		"type": "tsc",
-		"serve": "node dist/server.js",
-		"migrate": "node dist/migrate.js",
-		"quickstart": "npm run serve",
-		"start": "npm run migrate && npm run serve",
-		"dev:type": "tsc --watch",
-		"dev:serve": "nodemon dist/server.js",
-		"dev:quickstart": "concurrently -k -r \"npm run dev:type\" \"npm run dev:serve\"",
-		"dev:start": "npm run type && npm run migrate && concurrently -k -r \"npm run dev:type\" \"npm run dev:serve\""
-	},
-	"keywords": [],
-	"author": "",
-	"license": "ISC",
-	"description": "",
-	"devDependencies": {
-		"@types/express": "^4.17.21",
-		"@types/node": "^22.3.0",
-		"concurrently": "^8.2.2",
-		"nodemon": "^3.1.4",
-		"typescript": "^5.5.4"
-	},
-	"dependencies": {
-		"express": "^4.19.2",
-		"kysely": "^0.27.4",
-		"mysql2": "^3.11.0"
-	}
+    "name": "workspace",
+    "version": "1.0.0",
+    "main": "index.js",
+    "scripts": {
+        "type": "tsc",
+        "serve": "node dist/server.js",
+        "migrate": "node dist/migrate.js",
+        "quickstart": "npm run serve",
+        "start": "npm run migrate && npm run serve",
+        "reset": "node dist/reset.js",
+        "dev:type": "tsc --watch",
+        "dev:serve": "nodemon dist/server.js",
+        "dev:quickstart": "concurrently -k -r \"npm run dev:type\" \"npm run dev:serve\"",
+        "dev:start": "npm run type && npm run migrate && concurrently -k -r \"npm run dev:type\" \"npm run dev:serve\""
+    },
+    "keywords": [],
+    "author": "",
+    "license": "ISC",
+    "description": "",
+    "devDependencies": {
+        "@types/express": "^4.17.21",
+        "@types/node": "^22.3.0",
+        "concurrently": "^8.2.2",
+        "nodemon": "^3.1.4",
+        "typescript": "^5.5.4"
+    },
+    "dependencies": {
+        "express": "^4.19.2",
+        "kysely": "^0.27.4",
+        "mysql2": "^3.11.0"
+    }
 }
