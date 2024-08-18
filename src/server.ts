@@ -2,7 +2,6 @@
 import express from 'express';
 import { db } from './database';
 import {
-    createStreamOut,
     findStreamOutsGreaterThanStreamOutId,
     getMostRecentStreamOut,
 } from './streamOutStore';
@@ -14,6 +13,7 @@ import {
 import { notifySubscribers, poll, subscribe } from './subscriptions';
 import { getMostRecentUpstreamControl } from './upstreamControlStore';
 import { NewStreamOut } from './types';
+import { processStreamEvent } from './streamProcessor';
 
 // Create an Express application
 const app = express();
@@ -43,16 +43,6 @@ app.post('/streamIn', async (req, res) => {
 	*/
     const input = req.body;
     await db.transaction().execute(async (trx) => {
-        async function createStreamOutAndNotifySubscribers(
-            newStreamOut: NewStreamOut
-        ) {
-            const streamOut = await createStreamOut(trx, newStreamOut);
-            if (streamOut === undefined) {
-                return res.status(500).send();
-            }
-            // non-blocking
-            notifySubscribers(db, streamOut);
-        }
         const upstreamControl = await getMostRecentUpstreamControl(trx);
         const upstreamControlStreamInId = upstreamControl
             ? upstreamControl.streamInId
@@ -79,14 +69,24 @@ app.post('/streamIn', async (req, res) => {
             }
             // Assumes that the upstream service will return the events in order
             for (const pollResult of pollResults) {
-                await createStreamOutAndNotifySubscribers({
-                    data: JSON.stringify(pollResult.data),
-                });
+                await processStreamEvent(
+                    {
+                        data: JSON.stringify(pollResult.data),
+                    },
+                    res,
+                    db,
+                    trx
+                );
             }
         } else {
-            await createStreamOutAndNotifySubscribers({
-                data: JSON.stringify(input.data),
-            });
+            await processStreamEvent(
+                {
+                    data: JSON.stringify(input.data),
+                },
+                res,
+                db,
+                trx
+            );
         }
         await trx.deleteFrom('upstreamControl').execute();
         await trx
