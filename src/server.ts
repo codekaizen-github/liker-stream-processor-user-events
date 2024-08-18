@@ -1,6 +1,5 @@
 // Import the 'express' module
 import express from "express";
-import { env } from "process";
 import { db } from "./database";
 import {
 	createStreamOut,
@@ -14,6 +13,7 @@ import {
 } from "./httpSubscriberStore";
 import { notifySubscribers, poll, subscribe } from "./subscriptions";
 import { getMostRecentUpstreamControl } from "./upstreamControlStore";
+import { NewStreamOut } from "./types";
 
 // Create an Express application
 const app = express();
@@ -43,6 +43,16 @@ app.post("/streamIn", async (req, res) => {
 	*/
 	const input = req.body;
 	await db.transaction().execute(async (trx) => {
+		async function createStreamOutAndNotifySubscribers(
+			newStreamOut: NewStreamOut
+		) {
+			const streamOut = await createStreamOut(trx, newStreamOut);
+			if (streamOut === undefined) {
+				return res.status(500).send();
+			}
+			// non-blocking
+			notifySubscribers(db, streamOut);
+		}
 		const upstreamControl = await getMostRecentUpstreamControl(trx);
 		const upstreamControlStreamInId = upstreamControl
 			? upstreamControl.streamInId
@@ -58,6 +68,7 @@ app.post("/streamIn", async (req, res) => {
 			) {
 				throw new Error("Upstream URL is not defined");
 			}
+			// Gets any stream events between last recorded event and this neweset event (if there are any). Hypothetically, there could be gaps in the streamIn IDs.
 			const pollResults = await poll(
 				process.env
 					.LIKER_STREAM_PROCESSOR_DEDUPLICATOR_UPSTREAM_URL_STREAM_OUT,
@@ -66,14 +77,18 @@ app.post("/streamIn", async (req, res) => {
 			if (pollResults.length === 0) {
 				return res.status(404).send();
 			}
+			// Assumes that the upstream service will return the events in order
 			for (const pollResult of pollResults) {
-				const newStreamOut = { data: JSON.stringify(pollResult.data) };
-				await createStreamOut(trx, newStreamOut);
+				await createStreamOutAndNotifySubscribers({
+					data: JSON.stringify(pollResult.data),
+				});
 			}
 		} else {
-			const newStreamOut = { data: JSON.stringify(input.data) };
-			await createStreamOut(trx, newStreamOut);
+			await createStreamOutAndNotifySubscribers({
+				data: JSON.stringify(input.data),
+			});
 		}
+		await trx.deleteFrom("upstreamControl").execute();
 		await trx
 			.insertInto("upstreamControl")
 			.values({
@@ -81,11 +96,6 @@ app.post("/streamIn", async (req, res) => {
 			})
 			.execute();
 	});
-	// if (result === undefined) {
-	// 	return res.status(500).send();
-	// }
-	// non-blocking
-	// notifySubscribers(db, result);
 	return res.status(201).send();
 });
 
