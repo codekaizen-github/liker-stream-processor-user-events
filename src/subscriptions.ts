@@ -93,7 +93,7 @@ export async function poll(
 ): Promise<void> {
     // Gets any stream events between last recorded event and this neweset event (if there are any). Hypothetically, there could be gaps in the streamIn IDs.
     const pollResults = await makePollRequest(url, afterId);
-    if (pollResults.length === 0) {
+    if (undefined === pollResults?.length || pollResults.length === 0) {
         return;
     }
     // Assumes that the upstream service will return the events in order
@@ -125,9 +125,9 @@ export async function processStreamEventInTotalOrder(
     const upstreamControl = await getMostRecentUpstreamControl(trx);
     const upstreamControlStreamInId = upstreamControl
         ? upstreamControl.streamInId
-		: 0;
-	console.log({ upstreamControlStreamInId });
-	console.log({ newStreamEvent });
+        : 0;
+    console.log({ upstreamControlStreamInId });
+    console.log({ newStreamEvent });
     if (newStreamEvent.id <= upstreamControlStreamInId) {
         throw new StreamEventIdDuplicateException();
     }
