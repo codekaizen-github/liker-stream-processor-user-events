@@ -88,7 +88,7 @@ app.post('/streamIn', async (req, res) => {
         if (input.id > upstreamControlStreamInId + 1) {
             if (
                 process.env
-                    .LIKER_STREAM_PROCESSOR_DEDUPLICATOR_UPSTREAM_URL_STREAM_OUT ===
+                    .LIKER_STREAM_PROCESSOR_TRUTH_SAYER_UPSTREAM_URL_STREAM_OUT ===
                 undefined
             ) {
                 throw new Error('Upstream URL is not defined');
@@ -96,7 +96,7 @@ app.post('/streamIn', async (req, res) => {
             // Gets any stream events between last recorded event and this neweset event (if there are any). Hypothetically, there could be gaps in the streamIn IDs.
             const pollResults = await poll(
                 process.env
-                    .LIKER_STREAM_PROCESSOR_DEDUPLICATOR_UPSTREAM_URL_STREAM_OUT,
+                    .LIKER_STREAM_PROCESSOR_TRUTH_SAYER_UPSTREAM_URL_STREAM_OUT,
                 upstreamControlStreamInId
             );
             if (pollResults.length === 0) {
@@ -176,22 +176,21 @@ app.listen(port, () => {
 // Subscribe
 (async () => {
     if (
-        process.env
-            .LIKER_STREAM_PROCESSOR_DEDUPLICATOR_UPSTREAM_URL_REGISTER ===
+        process.env.LIKER_STREAM_PROCESSOR_TRUTH_SAYER_UPSTREAM_URL_REGISTER ===
         undefined
     ) {
         return;
     }
     if (
         process.env
-            .LIKER_STREAM_PROCESSOR_DEDUPLICATOR_CALLBACK_URL_STREAM_IN ===
+            .LIKER_STREAM_PROCESSOR_TRUTH_SAYER_CALLBACK_URL_STREAM_IN ===
         undefined
     ) {
         return;
     }
     subscribe(
-        process.env.LIKER_STREAM_PROCESSOR_DEDUPLICATOR_UPSTREAM_URL_REGISTER,
-        process.env.LIKER_STREAM_PROCESSOR_DEDUPLICATOR_CALLBACK_URL_STREAM_IN
+        process.env.LIKER_STREAM_PROCESSOR_TRUTH_SAYER_UPSTREAM_URL_REGISTER,
+        process.env.LIKER_STREAM_PROCESSOR_TRUTH_SAYER_CALLBACK_URL_STREAM_IN
     );
 })();
 

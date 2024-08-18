@@ -1,7 +1,7 @@
 {
-    "name": "liker-stream-processor-deduplicator",
+    "name": "liker-stream-processor-truth-sayer",
 	"dockerComposeFile": ["../docker-compose.yml", "docker-compose.yml"],
-	"service": "liker_stream_processor_deduplicator",
+	"service": "liker_stream_processor_truth_sayer",
 	"workspaceFolder": "/workspace",
     // "postCreateCommand": "npm ci",
 	// https://tjtelan.com/blog/how-to-link-multiple-docker-compose-via-network/
