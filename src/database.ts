@@ -2,7 +2,6 @@ import { Database } from './types'; // this is the Database interface we defined
 import { createPool } from 'mysql2'; // do not use 'mysql2/promises'!
 import { Kysely, MysqlDialect } from 'kysely';
 import { env } from 'process';
-import e from 'express';
 
 const poolConfig = {
     database: env.LIKER_STREAM_PROCESSOR_TRUTH_SAYER_DB_NAME,

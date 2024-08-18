@@ -14,7 +14,6 @@ import {
 import { notifySubscribers, poll, subscribe } from './subscriptions';
 import { getMostRecentUpstreamControl } from './upstreamControlStore';
 import { NewStreamOut } from './types';
-import { createFencingToken, findFencingTokens } from './fencingTokenStore';
 
 // Create an Express application
 const app = express();
@@ -47,30 +46,6 @@ app.post('/streamIn', async (req, res) => {
         async function createStreamOutAndNotifySubscribers(
             newStreamOut: NewStreamOut
         ) {
-            // Check to see if fencingToken was provided
-            const newStreamOutData = JSON.parse(newStreamOut.data);
-            if (newStreamOutData.fencingToken !== undefined) {
-                const incomingFencingToken = parseInt(
-                    newStreamOutData.fencingToken
-                );
-                // If a valid fencingToken is provided, check if it exists in the database before creating a new streamOut
-                if (!isNaN(incomingFencingToken)) {
-                    const fencingToken = await findFencingTokens(trx, {
-                        token: incomingFencingToken,
-                    });
-                    if (fencingToken.length > 0) {
-                        // Fencing token was used already - do nothing
-                        return;
-                    }
-                    // If the fencing token is not found, create a new fencing token
-                    const token = await createFencingToken(trx, {
-                        token: incomingFencingToken,
-                    });
-                    if (token === undefined) {
-                        return res.status(500).send();
-                    }
-                }
-            }
             const streamOut = await createStreamOut(trx, newStreamOut);
             if (streamOut === undefined) {
                 return res.status(500).send();

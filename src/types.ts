@@ -4,7 +4,6 @@ export interface Database {
     streamOut: StreamOutTable;
     httpSubscriber: HttpSubscriberTable;
     upstreamControl: UpstreamControlTable;
-    fencingToken: FencingTokenTable;
 }
 
 // This interface describes the `person` table to Kysely. Table
@@ -46,12 +45,3 @@ export interface UpstreamControlTable {
 export type UpstreamControl = Selectable<UpstreamControlTable>;
 export type NewUpstreamControl = Insertable<UpstreamControlTable>;
 export type UpstreamControlUpdate = Updateable<UpstreamControlTable>;
-
-export interface FencingTokenTable {
-    id: Generated<number>;
-    token: number;
-}
-
-export type FencingToken = Selectable<FencingTokenTable>;
-export type NewFencingToken = Insertable<FencingTokenTable>;
-export type FencingTokenUpdate = Updateable<FencingTokenTable>;
