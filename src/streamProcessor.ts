@@ -15,7 +15,7 @@ export async function processStreamEvent(
     switch (newStreamEventData.type) {
         case 'like-intended': {
             // Get the game id
-            const gameId = newStreamEventData.payload.gameId;
+            const gameId = newStreamEventData.payload.game.id;
             // Get the game state
             const game = await findGameById(trx, gameId);
             if (game !== undefined && game.likeCount < 50) {
@@ -64,7 +64,7 @@ export async function processStreamEvent(
                     type: 'new-game-succeeded',
                     payload: {
                         ...newStreamEventData.payload,
-                        gameId: newGame.id,
+                        game: newGame,
                     },
                 }),
             };
