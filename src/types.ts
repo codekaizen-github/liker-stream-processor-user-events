@@ -4,7 +4,8 @@ export interface Database {
     streamOut: StreamOutTable;
     httpSubscriber: HttpSubscriberTable;
     upstreamControl: UpstreamControlTable;
-    game: GameTable;
+    user: UserTable;
+    userEvent: UserEventTable;
 }
 
 // This interface describes the `person` table to Kysely. Table
@@ -47,11 +48,22 @@ export type UpstreamControl = Selectable<UpstreamControlTable>;
 export type NewUpstreamControl = Insertable<UpstreamControlTable>;
 export type UpstreamControlUpdate = Updateable<UpstreamControlTable>;
 
-export interface GameTable {
+export interface UserTable {
     id: Generated<number>;
-    likeCount: number;
+    email: string;
 }
 
-export type Game = Selectable<GameTable>;
-export type NewGame = Insertable<GameTable>;
-export type GameUpdate = Updateable<GameTable>;
+export type User = Selectable<UserTable>;
+export type NewUser = Insertable<UserTable>;
+export type UserUpdate = Updateable<UserTable>;
+
+export interface UserEventTable {
+    id: Generated<number>;
+    userId: number;
+    userEventId: number;
+    data: string;
+}
+
+export type UserEvent = Selectable<UserEventTable>;
+export type NewUserEvent = Insertable<UserEventTable>;
+export type UserEventUpdate = Updateable<UserEventTable>;
