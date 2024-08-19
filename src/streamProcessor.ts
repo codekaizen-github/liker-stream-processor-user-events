@@ -23,8 +23,8 @@ export async function processStreamEvent(
     switch (newStreamEventData.type) {
         case 'create-new-user-succeeded': {
             const userEmail = newStreamEventData.payload.user.email;
-            const existingUser = await findUsers(trx, { email: userEmail });
-            if (existingUser.length === 0) {
+            const existingUser = await findUserByEmail(trx, userEmail);
+            if (existingUser === undefined) {
                 const newUser = await createUser(trx, {
                     email: userEmail,
                 });

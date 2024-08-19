@@ -29,6 +29,10 @@ export async function findUsers(
     if (criteria.id) {
         query = query.where('id', '=', criteria.id); // Kysely is immutable, you must re-assign!
     }
+
+    if (criteria.email) {
+        query = query.where('email', '=', criteria.email);
+    }
     return await query.selectAll().execute();
 }
 
