@@ -63,14 +63,14 @@ app.post('/streamIn', async (req, res) => {
                 // We should stop polling and wait for the upstream service to catch up
                 if (
                     process.env
-                        .LIKER_STREAM_PROCESSOR_TRUTH_SAYER_UPSTREAM_URL_STREAM_OUT ===
+                        .LIKER_STREAM_PROCESSOR_USER_EVENTS_UPSTREAM_URL_STREAM_OUT ===
                     undefined
                 ) {
                     return;
                 }
                 pollForLatest(
                     process.env
-                        .LIKER_STREAM_PROCESSOR_TRUTH_SAYER_UPSTREAM_URL_STREAM_OUT,
+                        .LIKER_STREAM_PROCESSOR_USER_EVENTS_UPSTREAM_URL_STREAM_OUT,
                     db,
                     trx
                 );
@@ -133,21 +133,21 @@ app.listen(port, () => {
 // Subscribe
 (async () => {
     if (
-        process.env.LIKER_STREAM_PROCESSOR_TRUTH_SAYER_UPSTREAM_URL_REGISTER ===
+        process.env.LIKER_STREAM_PROCESSOR_USER_EVENTS_UPSTREAM_URL_REGISTER ===
         undefined
     ) {
         return;
     }
     if (
         process.env
-            .LIKER_STREAM_PROCESSOR_TRUTH_SAYER_CALLBACK_URL_STREAM_IN ===
+            .LIKER_STREAM_PROCESSOR_USER_EVENTS_CALLBACK_URL_STREAM_IN ===
         undefined
     ) {
         return;
     }
     subscribe(
-        process.env.LIKER_STREAM_PROCESSOR_TRUTH_SAYER_UPSTREAM_URL_REGISTER,
-        process.env.LIKER_STREAM_PROCESSOR_TRUTH_SAYER_CALLBACK_URL_STREAM_IN
+        process.env.LIKER_STREAM_PROCESSOR_USER_EVENTS_UPSTREAM_URL_REGISTER,
+        process.env.LIKER_STREAM_PROCESSOR_USER_EVENTS_CALLBACK_URL_STREAM_IN
     );
 })();
 
@@ -156,14 +156,14 @@ app.listen(port, () => {
     await db.transaction().execute(async (trx) => {
         if (
             process.env
-                .LIKER_STREAM_PROCESSOR_TRUTH_SAYER_UPSTREAM_URL_STREAM_OUT ===
+                .LIKER_STREAM_PROCESSOR_USER_EVENTS_UPSTREAM_URL_STREAM_OUT ===
             undefined
         ) {
             return;
         }
         await pollForLatest(
             process.env
-                .LIKER_STREAM_PROCESSOR_TRUTH_SAYER_UPSTREAM_URL_STREAM_OUT,
+                .LIKER_STREAM_PROCESSOR_USER_EVENTS_UPSTREAM_URL_STREAM_OUT,
             db,
             trx
         );

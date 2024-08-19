@@ -4,10 +4,10 @@ import { Kysely, MysqlDialect } from 'kysely';
 import { env } from 'process';
 
 const poolConfig = {
-    database: env.LIKER_STREAM_PROCESSOR_TRUTH_SAYER_DB_NAME,
-    host: env.LIKER_STREAM_PROCESSOR_TRUTH_SAYER_DB_HOSTNAME,
-    user: env.LIKER_STREAM_PROCESSOR_TRUTH_SAYER_DB_USER,
-    password: env.LIKER_STREAM_PROCESSOR_TRUTH_SAYER_DB_PASSWORD,
+    database: env.LIKER_STREAM_PROCESSOR_USER_EVENTS_DB_NAME,
+    host: env.LIKER_STREAM_PROCESSOR_USER_EVENTS_DB_HOSTNAME,
+    user: env.LIKER_STREAM_PROCESSOR_USER_EVENTS_DB_USER,
+    password: env.LIKER_STREAM_PROCESSOR_USER_EVENTS_DB_PASSWORD,
     port: 3306,
     connectionLimit: 10,
 };

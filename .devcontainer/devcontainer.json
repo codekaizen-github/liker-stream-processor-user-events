@@ -1,7 +1,7 @@
 {
-    "name": "liker-stream-processor-truth-sayer",
+    "name": "liker-stream-processor-user-events",
 	"dockerComposeFile": ["../docker-compose.yml", "docker-compose.yml"],
-	"service": "liker_stream_processor_truth_sayer",
+	"service": "liker_stream_processor_user_events",
 	"workspaceFolder": "/workspace",
     // "postCreateCommand": "npm ci",
 	// https://tjtelan.com/blog/how-to-link-multiple-docker-compose-via-network/
