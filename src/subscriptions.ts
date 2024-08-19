@@ -1,5 +1,5 @@
 import { Kysely, Transaction } from 'kysely';
-import { Database, StreamOut } from './types';
+import { Database, NewStreamOut, StreamOut, UserEvent } from './types';
 import { findHttpSubscribers } from './httpSubscriberStore';
 import { processStreamEvent } from './streamProcessor';
 import {
@@ -10,6 +10,19 @@ import {
     StreamEventIdDuplicateException,
     StreamEventOutOfSequenceException,
 } from './exceptions';
+
+/*
+- [ ] Define a function which will add an event to a user stream
+    - [ ] Function should
+        - [ ] Query existing userEvents for that user to find the one with max userEventId
+        - [ ] Calculate the next userEventId (+1)
+        - [ ] Insert
+        - [ ] Notify related streams (sockets)
+*/
+
+export async function notifyUserSockets(userEvent: UserEvent): Promise<void> {
+    // Notify user sockets
+}
 
 export async function notifySubscribers(
     db: Kysely<Database>,
@@ -101,6 +114,7 @@ export async function poll(
         try {
             await processStreamEventInTotalOrder(pollResult, db, trx);
         } catch (e) {
+            console.log('error caught at poll function', e);
             // Handle StreamEventIdDuplicateException and StreamEventOutOfSequenceException differently than other exceptions
             if (e instanceof StreamEventIdDuplicateException) {
                 // If the event ID is a duplicate, we can safely ignore it

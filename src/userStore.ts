@@ -9,6 +9,17 @@ export async function findUserById(trx: Transaction<Database>, id: number) {
         .executeTakeFirst();
 }
 
+export async function findUserByEmail(
+    trx: Transaction<Database>,
+    email: string
+) {
+    return await trx
+        .selectFrom('user')
+        .where('email', '=', email)
+        .selectAll()
+        .executeTakeFirst();
+}
+
 export async function findUsers(
     trx: Transaction<Database>,
     criteria: Partial<User>

@@ -53,12 +53,16 @@ app.post('/streamIn', async (req, res) => {
         try {
             await processStreamEventInTotalOrder(newStreamEvent, db, trx);
         } catch (e) {
+            console.log('error caught at streamIn function', e);
             // Handle StreamEventIdDuplicateException and StreamEventOutOfSequenceException differently than other exceptions
             if (e instanceof StreamEventIdDuplicateException) {
                 // If the event ID is a duplicate, we can safely ignore it
                 return res.status(200).send();
             }
             if (e instanceof StreamEventOutOfSequenceException) {
+                console.log(
+                    'handling StreamEventOutOfSequenceException gracefully'
+                );
                 // If the event ID is out of sequence, there is an issue with the upstream service
                 // We should stop polling and wait for the upstream service to catch up
                 if (
@@ -74,6 +78,7 @@ app.post('/streamIn', async (req, res) => {
                     db,
                     trx
                 );
+                return res.status(200).send();
             }
             throw e;
         }

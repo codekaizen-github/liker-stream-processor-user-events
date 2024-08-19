@@ -10,3 +10,9 @@ export class StreamEventIdDuplicateException extends Error {
         super('Stream event ID duplicate');
     }
 }
+
+export class UserNotFoundException extends Error {
+    constructor() {
+        super('User not found');
+    }
+}

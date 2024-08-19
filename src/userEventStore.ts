@@ -32,10 +32,14 @@ export async function findUserEventsGreaterThanUserEventId(
     return await query.selectAll().execute();
 }
 
-export async function getMostRecentUserEvent(trx: Transaction<Database>) {
+export async function getMostRecentUserEventByUserId(
+    trx: Transaction<Database>,
+    userId: number
+) {
     return await trx
         .selectFrom('userEvent')
-        .orderBy('id', 'desc')
+        .where('userId', '=', userId)
+        .orderBy('userEventId', 'desc')
         .limit(1)
         .selectAll()
         .executeTakeFirst();

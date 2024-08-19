@@ -1,12 +1,22 @@
 import { Generated, Insertable, Selectable, Updateable } from 'kysely';
 
 export interface Database {
+    streamIn: StreamInTable;
     streamOut: StreamOutTable;
     httpSubscriber: HttpSubscriberTable;
     upstreamControl: UpstreamControlTable;
     user: UserTable;
     userEvent: UserEventTable;
 }
+
+export interface StreamInTable {
+    id: Generated<number>;
+    data: string;
+}
+
+export type StreamIn = Selectable<StreamInTable>;
+export type NewStreamIn = Insertable<StreamInTable>;
+export type StreamInUpdate = Updateable<StreamInTable>;
 
 // This interface describes the `person` table to Kysely. Table
 // interfaces should only be used in the `Database` type above
