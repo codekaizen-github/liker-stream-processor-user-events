@@ -23,6 +23,7 @@ export async function processStreamEvent(
             const newUser = await createUser(trx, {
                 email: userEmail,
             });
+            console.log({ newUser });
             if (newUser === undefined) {
                 throw new Error('Failed to create user');
             }
@@ -63,10 +64,12 @@ export async function processStreamEvent(
     }
     // Else notify all user streams
     const users = await findUsers(trx, {});
+    console.log({ users });
     for (const user of users) {
+        console.log('iterating', { user });
         await writeToUserStream(trx, user.email, newStreamEvent.data);
-        return;
     }
+    return;
 }
 
 export async function writeToUserStream(

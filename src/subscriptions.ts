@@ -117,7 +117,6 @@ export async function poll(
         try {
             await processStreamEventInTotalOrder(pollResult, db, trx);
         } catch (e) {
-            console.log('error caught at poll function', e);
             // Handle StreamEventIdDuplicateException and StreamEventOutOfSequenceException differently than other exceptions
             if (e instanceof StreamEventIdDuplicateException) {
                 // If the event ID is a duplicate, we can safely ignore it
@@ -126,7 +125,6 @@ export async function poll(
             if (e instanceof StreamEventOutOfSequenceException) {
                 // If the event ID is out of sequence, there is an issue with the upstream service
                 // We should stop polling and wait for the upstream service to catch up
-                console.error('Stream event out of sequence');
                 return;
             }
             throw e;
@@ -143,8 +141,6 @@ export async function processStreamEventInTotalOrder(
     const upstreamControlStreamInId = upstreamControl
         ? upstreamControl.streamInId
         : 0;
-    console.log({ upstreamControlStreamInId });
-    console.log({ newStreamEvent });
     if (newStreamEvent.id <= upstreamControlStreamInId) {
         throw new StreamEventIdDuplicateException();
     }
