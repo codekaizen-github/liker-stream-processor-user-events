@@ -25,7 +25,15 @@ export async function getAllStreamInsDescending(trx: Transaction<Database>) {
     return await trx
         .selectFrom('streamIn')
         .orderBy('id', 'desc')
-		.selectAll()
+        .selectAll()
+        .execute();
+}
+
+export async function getAllStreamInsAscending(trx: Transaction<Database>) {
+    return await trx
+        .selectFrom('streamIn')
+        .orderBy('id', 'asc')
+        .selectAll()
         .execute();
 }
 
