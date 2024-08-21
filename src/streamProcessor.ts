@@ -29,9 +29,8 @@ export async function processStreamEvent(
             // Get all prior events that were chucked into streamIn and reprocess for this user
             const priorStreamEvents = await getAllStreamInsAscending(trx);
             for (const priorStreamEvent of priorStreamEvents) {
-                const priorStreamEventData = JSON.parse(
-                    JSON.stringify(priorStreamEvent.data)
-                );
+                const priorStreamEventData = JSON.parse(priorStreamEvent.data);
+                console.log({ priorStreamEventData });
                 switch (priorStreamEventData.type) {
                     default: {
                         const userEmail =
