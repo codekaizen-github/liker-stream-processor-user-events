@@ -20,13 +20,22 @@ import {
     StreamEventIdDuplicateException,
     StreamEventOutOfSequenceException,
 } from './exceptions';
-import { url } from 'inspector';
+import ws from 'ws';
+
+// Create a WebSocket server
+const wsPort = 8080;
+const wss = new ws.WebSocketServer({ port: wsPort });
+wss.on('connection', function connection(ws) {
+    ws.on('message', function message(data) {
+        console.log('received: %s', data);
+        ws.send(`received: ${data}`);
+    });
+    ws.send('something');
+});
 
 // Create an Express application
-const app = express();
-
-// Set the port number for the server
 const port = 80;
+const app = express();
 
 app.use(express.json());
 
