@@ -1,5 +1,6 @@
 // Import the 'express' module
 import express from 'express';
+import { createServer, IncomingMessage } from 'http';
 import { db } from './database';
 import {
     findStreamOutsGreaterThanStreamOutId,
@@ -21,18 +22,75 @@ import {
     StreamEventOutOfSequenceException,
 } from './exceptions';
 import ws from 'ws';
-
+import { findUserByEmail } from './userStore';
+import { User } from './types';
+import { Duplex } from 'stream';
+const clientsByEmail = new Map<string, Duplex>();
 // Create a WebSocket server
 const wsPort = 8080;
-const wss = new ws.WebSocketServer({ port: wsPort });
+const server = createServer();
+const wss = new ws.WebSocketServer({ noServer: true });
 wss.on('connection', function connection(ws) {
+    console.log('connection');
     ws.on('message', function message(data) {
         console.log('received: %s', data);
         ws.send(`received: ${data}`);
     });
     ws.send('something');
 });
+function onSocketError(err: Error) {
+    console.error('WebSocket error:', err);
+}
+function authenticate(
+    request: IncomingMessage,
+    callback: (err: Error | null, client: User | null) => void
+) {
+    const email = request.headers['email'];
+    if (email === undefined) {
+        callback(new Error('Email header not found'), null);
+        return;
+    }
+    if (typeof email !== 'string') {
+        callback(new Error('Email header is not a string'), null);
+        return;
+    }
+    // Check to see if email is in the database
+    db.transaction().execute(async (trx) => {
+        findUserByEmail(trx, email).then((user) => {
+            if (!user) {
+                callback(new Error('User not found'), null);
+                return;
+            }
+            callback(null, user);
+        });
+    });
+}
+server.on('upgrade', function upgrade(request, socket, head) {
+    socket.on('error', onSocketError);
+    console.log('upgrade');
+    // This function is not defined on purpose. Implement it with your own logic.
+    authenticate(request, function next(err, client) {
+        if (err || !client) {
+            socket.write('HTTP/1.1 401 Unauthorized\r\n\r\n');
+            socket.destroy();
+            return;
+        }
+        socket.removeListener('error', onSocketError);
 
+        wss.handleUpgrade(request, socket, head, function done(ws) {
+            clientsByEmail.set(client.email, socket);
+            wss.emit('connection', ws, request, client);
+            console.log({
+                clientsByEmail: JSON.stringify(
+                    Array.from(clientsByEmail.entries())
+                ),
+            });
+        });
+    });
+});
+server.listen(wsPort, () => {
+    console.log(`WebSocket server is running on ws://localhost:${wsPort}`);
+});
 // Create an Express application
 const port = 80;
 const app = express();
