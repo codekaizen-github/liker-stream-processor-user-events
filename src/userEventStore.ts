@@ -1,5 +1,14 @@
 import { Transaction } from 'kysely';
-import { UserEventUpdate, UserEvent, NewUserEvent, Database } from './types';
+import {
+    UserEventUpdate,
+    UserEvent,
+    NewUserEvent,
+    Database,
+    NewStreamEvent,
+    OrderedStreamEvent,
+    NewUserStreamEvent,
+    OrderedUserStreamEvent,
+} from './types';
 
 export async function findUserEventById(
     trx: Transaction<Database>,
@@ -55,6 +64,21 @@ export async function updateUserEvent(
         .set(updateWith)
         .where('id', '=', id)
         .execute();
+}
+
+export async function createUserEventFromStreamEvent(
+    trx: Transaction<Database>,
+    streamEvent: NewUserStreamEvent | OrderedUserStreamEvent
+) {
+    const streamOut = await createUserEvent(trx, {
+        ...streamEvent,
+        id: undefined,
+        data: JSON.stringify(streamEvent.data),
+    });
+    if (streamOut === undefined) {
+        return undefined;
+    }
+    return streamOut;
 }
 
 export async function createUserEvent(

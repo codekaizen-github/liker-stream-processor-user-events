@@ -11,7 +11,7 @@ const dialect = new MysqlDialect({
         password: env.LIKER_STREAM_PROCESSOR_USER_EVENTS_DB_PASSWORD,
         port: 3306,
         connectionLimit: 10,
-        jsonStrings: true,
+        jsonStrings: false,
     }),
 });
 

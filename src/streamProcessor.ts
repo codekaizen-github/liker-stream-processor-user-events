@@ -1,24 +1,28 @@
-import { Database, NewStreamIn, NewStreamOut } from './types';
+import { Database, NewStreamEvent, NewStreamIn, NewStreamOut } from './types';
 import { Kysely, Transaction } from 'kysely';
 import { createUser, findUserByEmail, findUsers } from './userStore';
 import { notifyUserSockets } from './subscriptions';
 import { UserNotFoundException } from './exceptions';
 import {
-    createUserEvent,
+    createUserEventFromStreamEvent,
     getMostRecentUserEventByUserId,
 } from './userEventStore';
-import { createStreamIn, getAllStreamInsAscending } from './streamInStore';
+import {
+    createStreamInFromStreamEvent,
+    getAllStreamInsAscending,
+} from './streamInStore';
 
 export async function processStreamEvent(
-    newStreamEvent: NewStreamIn,
-    db: Kysely<Database>,
-    trx: Transaction<Database>
+    trx: Transaction<Database>,
+    newStreamEvent: NewStreamEvent
 ) {
     // This is correct - data is formattted correctly
-    const newStreamEventData = JSON.parse(newStreamEvent.data);
+    const newStreamEventData = newStreamEvent.data;
+    console.log({ newStreamEvent: JSON.stringify(newStreamEvent) });
     const userEmail = newStreamEventData?.payload?.user?.email;
     if (newStreamEventData.type === 'create-new-user-succeeded') {
         const existingUser = await findUserByEmail(trx, userEmail);
+        console.log({ existingUser });
         if (existingUser === undefined) {
             const newUser = await createUser(trx, {
                 email: userEmail,
@@ -29,8 +33,7 @@ export async function processStreamEvent(
             // Get all prior events that were chucked into streamIn and reprocess for this user
             const priorStreamEvents = await getAllStreamInsAscending(trx);
             for (const priorStreamEvent of priorStreamEvents) {
-                const priorStreamEventData = JSON.parse(priorStreamEvent.data);
-                console.log({ priorStreamEventData });
+                const priorStreamEventData = priorStreamEvent.data;
                 switch (priorStreamEventData.type) {
                     default: {
                         const userEmail =
@@ -44,7 +47,7 @@ export async function processStreamEvent(
                             await writeToUserStream(
                                 trx,
                                 newUser.email,
-                                JSON.stringify(priorStreamEventData)
+                                priorStreamEventData
                             );
                         }
                     }
@@ -54,7 +57,7 @@ export async function processStreamEvent(
         }
         return;
     }
-    await createStreamIn(trx, { data: newStreamEvent.data });
+    await createStreamInFromStreamEvent(trx, { data: newStreamEvent.data });
     if (userEmail !== undefined) {
         // Notify user
         await writeToUserStream(trx, userEmail, newStreamEvent.data);
@@ -71,7 +74,7 @@ export async function processStreamEvent(
 export async function writeToUserStream(
     trx: Transaction<Database>,
     userEmail: string,
-    streamOutData: string
+    streamOutData: any
 ): Promise<void> {
     const existingUser = await findUserByEmail(trx, userEmail);
     if (undefined === existingUser) {
@@ -85,7 +88,7 @@ export async function writeToUserStream(
     const mostRecentUserEventUserEventId = mostRecentUserEventByUserId
         ? mostRecentUserEventByUserId.userEventId
         : 0;
-    const newUserEvent = await createUserEvent(trx, {
+    const newUserEvent = await createUserEventFromStreamEvent(trx, {
         userId: existingUser.id,
         userEventId: mostRecentUserEventUserEventId + 1,
         data: streamOutData,
@@ -94,5 +97,5 @@ export async function writeToUserStream(
         throw new Error('Failed to create user event');
     }
     // non-blocking
-    notifyUserSockets(newUserEvent);
+    notifyUserSockets(userEmail, newUserEvent);
 }

@@ -1,5 +1,5 @@
 import { Kysely, Transaction } from 'kysely';
-import { Database, NewStreamOut, StreamOut, UserEvent } from './types';
+import { Database, OrderedStreamEvent, StreamOut, UserEvent } from './types';
 import { findHttpSubscribers } from './httpSubscriberStore';
 import { processStreamEvent } from './streamProcessor';
 import {
@@ -10,6 +10,7 @@ import {
     StreamEventIdDuplicateException,
     StreamEventOutOfSequenceException,
 } from './exceptions';
+import { clientsByEmail } from './server';
 
 /*
 - [ ] Define a function which will add an event to a user stream
@@ -20,24 +21,23 @@ import {
         - [ ] Notify related streams (sockets)
 */
 
-export async function notifyUserSockets(userEvent: UserEvent): Promise<void> {
+export async function notifyUserSockets(
+    userEmail: string,
+    userEvent: UserEvent
+): Promise<void> {
     // Notify user sockets
+    // const clients = clientsByEmail.get(userEmail)?.write(JSON.stringify(userEvent));
 }
 
 export async function notifySubscribers(
-    db: Kysely<Database>,
+    trx: Transaction<Database>,
     streamOut: StreamOut
 ): Promise<void> {
-    await db
-        .transaction()
-        .setIsolationLevel('serializable')
-        .execute(async (trx) => {
-            const subscriptions = await findHttpSubscribers(trx, {});
-            for (const subscription of subscriptions) {
-                // non-blocking
-                notifySubscriberUrl(subscription.url, streamOut);
-            }
-        });
+    const subscriptions = await findHttpSubscribers(trx, {});
+    for (const subscription of subscriptions) {
+        // non-blocking
+        notifySubscriberUrl(subscription.url, streamOut);
+    }
 }
 
 export async function notifySubscriberUrl(
@@ -77,15 +77,14 @@ export async function subscribe(
 }
 
 export async function pollForLatest(
-    url: string,
-    db: Kysely<Database>,
-    trx: Transaction<Database>
+    trx: Transaction<Database>,
+    url: string
 ): Promise<void> {
     const upstreamControl = await getMostRecentUpstreamControl(trx);
     const upstreamControlStreamInId = upstreamControl
         ? upstreamControl.streamInId
         : 0;
-    poll(url, upstreamControlStreamInId, db, trx);
+    poll(trx, url, upstreamControlStreamInId);
 }
 
 export async function makePollRequest(
@@ -102,10 +101,9 @@ export async function makePollRequest(
 }
 
 export async function poll(
+    trx: Transaction<Database>,
     url: string,
-    afterId: number,
-    db: Kysely<Database>,
-    trx: Transaction<Database>
+    afterId: number
 ): Promise<void> {
     // Gets any stream events between last recorded event and this neweset event (if there are any). Hypothetically, there could be gaps in the streamIn IDs.
     const pollResults = await makePollRequest(url, afterId);
@@ -115,7 +113,7 @@ export async function poll(
     // Assumes that the upstream service will return the events in order
     for (const pollResult of pollResults) {
         try {
-            await processStreamEventInTotalOrder(pollResult, db, trx);
+            await processStreamEventInTotalOrder(trx, pollResult);
         } catch (e) {
             // Handle StreamEventIdDuplicateException and StreamEventOutOfSequenceException differently than other exceptions
             if (e instanceof StreamEventIdDuplicateException) {
@@ -125,6 +123,7 @@ export async function poll(
             if (e instanceof StreamEventOutOfSequenceException) {
                 // If the event ID is out of sequence, there is an issue with the upstream service
                 // We should stop polling and wait for the upstream service to catch up
+                console.error('Stream event out of sequence');
                 return;
             }
             throw e;
@@ -133,27 +132,20 @@ export async function poll(
 }
 
 export async function processStreamEventInTotalOrder(
-    newStreamEvent: { id: number; data: string },
-    db: Kysely<Database>,
-    trx: Transaction<Database>
+    trx: Transaction<Database>,
+    orderedStreamEvent: OrderedStreamEvent
 ): Promise<void> {
     const upstreamControl = await getMostRecentUpstreamControl(trx);
     const upstreamControlStreamInId = upstreamControl
         ? upstreamControl.streamInId
         : 0;
-    if (newStreamEvent.id <= upstreamControlStreamInId) {
+    if (orderedStreamEvent.id <= upstreamControlStreamInId) {
         throw new StreamEventIdDuplicateException();
     }
-    if (newStreamEvent.id > upstreamControlStreamInId + 1) {
+    if (orderedStreamEvent.id > upstreamControlStreamInId + 1) {
         throw new StreamEventOutOfSequenceException();
     }
-    await processStreamEvent(
-        {
-            data: JSON.stringify(newStreamEvent.data),
-        },
-        db,
-        trx
-    );
+    await processStreamEvent(trx, orderedStreamEvent);
     await trx.deleteFrom('upstreamControl').execute();
-    await createUpstreamControl(trx, { streamInId: newStreamEvent.id });
+    await createUpstreamControl(trx, { streamInId: orderedStreamEvent.id });
 }

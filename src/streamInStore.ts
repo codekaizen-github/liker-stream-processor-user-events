@@ -1,5 +1,12 @@
 import { Transaction } from 'kysely';
-import { StreamInUpdate, StreamIn, NewStreamIn, Database } from './types';
+import {
+    StreamInUpdate,
+    StreamIn,
+    NewStreamIn,
+    Database,
+    NewStreamEvent,
+    OrderedStreamEvent,
+} from './types';
 
 export async function findStreamInById(trx: Transaction<Database>, id: number) {
     return await trx
@@ -30,11 +37,12 @@ export async function getAllStreamInsDescending(trx: Transaction<Database>) {
 }
 
 export async function getAllStreamInsAscending(trx: Transaction<Database>) {
-    return await trx
+    const results = await trx
         .selectFrom('streamIn')
         .orderBy('id', 'asc')
         .selectAll()
         .execute();
+    return results;
 }
 
 export async function findStreamInsGreaterThanStreamInId(
@@ -64,6 +72,21 @@ export async function updateStreamIn(
         .set(updateWith)
         .where('id', '=', id)
         .execute();
+}
+
+export async function createStreamInFromStreamEvent(
+    trx: Transaction<Database>,
+    streamEvent: NewStreamEvent | OrderedStreamEvent
+) {
+    const streamOut = await createStreamIn(trx, {
+        ...streamEvent,
+        id: undefined,
+        data: JSON.stringify(streamEvent.data),
+    });
+    if (streamOut === undefined) {
+        return undefined;
+    }
+    return streamOut;
 }
 
 export async function createStreamIn(

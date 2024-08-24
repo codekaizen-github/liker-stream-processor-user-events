@@ -66,8 +66,10 @@ export async function updateUser(
 }
 
 export async function createUser(trx: Transaction<Database>, user: NewUser) {
+    console.log('Trying to create user', { user });
     const { insertId } = await trx
         .insertInto('user')
+
         .values(user)
         .executeTakeFirstOrThrow();
 

@@ -25,15 +25,13 @@ import ws from 'ws';
 import { findUserByEmail } from './userStore';
 import { User } from './types';
 import { Duplex } from 'stream';
-const clientsByEmail = new Map<string, Duplex>();
+export const clientsByEmail = new Map<string, ws[]>();
 // Create a WebSocket server
 const wsPort = 8080;
 const server = createServer();
 const wss = new ws.WebSocketServer({ noServer: true });
 wss.on('connection', function connection(ws) {
-    console.log('connection');
     ws.on('message', function message(data) {
-        console.log('received: %s', data);
         ws.send(`received: ${data}`);
     });
     ws.send('something');
@@ -55,19 +53,20 @@ function authenticate(
         return;
     }
     // Check to see if email is in the database
-    db.transaction().execute(async (trx) => {
-        findUserByEmail(trx, email).then((user) => {
-            if (!user) {
-                callback(new Error('User not found'), null);
-                return;
-            }
-            callback(null, user);
+    db.transaction()
+        .setIsolationLevel('serializable')
+        .execute(async (trx) => {
+            findUserByEmail(trx, email).then((user) => {
+                if (!user) {
+                    callback(new Error('User not found'), null);
+                    return;
+                }
+                callback(null, user);
+            });
         });
-    });
 }
 server.on('upgrade', function upgrade(request, socket, head) {
     socket.on('error', onSocketError);
-    console.log('upgrade');
     // This function is not defined on purpose. Implement it with your own logic.
     authenticate(request, function next(err, client) {
         if (err || !client) {
@@ -76,15 +75,27 @@ server.on('upgrade', function upgrade(request, socket, head) {
             return;
         }
         socket.removeListener('error', onSocketError);
-
         wss.handleUpgrade(request, socket, head, function done(ws) {
-            clientsByEmail.set(client.email, socket);
-            wss.emit('connection', ws, request, client);
-            console.log({
-                clientsByEmail: JSON.stringify(
-                    Array.from(clientsByEmail.entries())
-                ),
+            clientsByEmail.set(client.email, [
+                ...(clientsByEmail.get(client.email) || []),
+                ws,
+            ]);
+            ws.on('close', () => {
+                const clients = clientsByEmail.get(client.email);
+                if (clients === undefined) {
+                    return;
+                }
+                clientsByEmail.set(
+                    client.email,
+                    clients.filter((c) => c !== ws)
+                );
             });
+            wss.emit('connection', ws, request, client);
+            // console.log({
+            //     clientsByEmail: JSON.stringify(
+            //         Array.from(clientsByEmail.entries())
+            //     ),
+            // });
         });
     });
 });
@@ -104,24 +115,12 @@ app.get('/', (req, res) => {
 });
 
 app.post('/streamIn', async (req, res) => {
-    /*
-	    {
-        "id": 1,
-        "data": {
-            "type": "test",
-            "payload": {
-                "key": "value"
-            }
-        }
-    }
-	*/
-    const newStreamEvent = req.body;
     await db
         .transaction()
         .setIsolationLevel('serializable')
         .execute(async (trx) => {
             try {
-                await processStreamEventInTotalOrder(newStreamEvent, db, trx);
+                await processStreamEventInTotalOrder(trx, req.body);
             } catch (e) {
                 // Handle StreamEventIdDuplicateException and StreamEventOutOfSequenceException differently than other exceptions
                 if (e instanceof StreamEventIdDuplicateException) {
@@ -139,12 +138,11 @@ app.post('/streamIn', async (req, res) => {
                         return;
                     }
                     pollForLatest(
+                        trx,
                         process.env
-                            .LIKER_STREAM_PROCESSOR_USER_EVENTS_UPSTREAM_URL_STREAM_OUT,
-                        db,
-                        trx
+                            .LIKER_STREAM_PROCESSOR_USER_EVENTS_UPSTREAM_URL_STREAM_OUT
                     );
-                    return res.status(200).send();
+                    return res.status(201).send();
                 }
                 throw e;
             }
@@ -245,10 +243,9 @@ app.listen(port, () => {
                 return;
             }
             await pollForLatest(
+                trx,
                 process.env
-                    .LIKER_STREAM_PROCESSOR_USER_EVENTS_UPSTREAM_URL_STREAM_OUT,
-                db,
-                trx
+                    .LIKER_STREAM_PROCESSOR_USER_EVENTS_UPSTREAM_URL_STREAM_OUT
             );
         });
 })();
@@ -264,6 +261,6 @@ app.listen(port, () => {
                 return;
             }
             // non-blocking
-            notifySubscribers(db, record);
+            notifySubscribers(trx, record);
         });
 })();

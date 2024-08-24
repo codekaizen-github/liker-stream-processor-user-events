@@ -1,5 +1,12 @@
 import { Transaction } from 'kysely';
-import { StreamOutUpdate, StreamOut, NewStreamOut, Database } from './types';
+import {
+    StreamOutUpdate,
+    StreamOut,
+    NewStreamOut,
+    Database,
+    NewStreamEvent,
+    OrderedStreamEvent,
+} from './types';
 
 export async function findStreamOutById(
     trx: Transaction<Database>,
@@ -55,6 +62,21 @@ export async function updateStreamOut(
         .where('id', '=', id)
         .execute();
 }
+
+export async function createStreamOutFromStreamEvent(
+        trx: Transaction<Database>,
+        streamEvent: NewStreamEvent | OrderedStreamEvent
+    ) {
+        const streamOut = await createStreamOut(trx, {
+            ...streamEvent,
+            id: undefined,
+            data: JSON.stringify(streamEvent.data),
+        });
+        if (streamOut === undefined) {
+            return undefined;
+        }
+        return streamOut;
+    }
 
 export async function createStreamOut(
     trx: Transaction<Database>,
