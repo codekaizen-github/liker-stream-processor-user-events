@@ -24,7 +24,6 @@ import {
 import ws from 'ws';
 import { findUserByEmail } from './userStore';
 import { User } from './types';
-import { Duplex } from 'stream';
 export const clientsByEmail = new Map<string, ws[]>();
 // Create a WebSocket server
 const wsPort = 8080;
@@ -66,6 +65,7 @@ function authenticate(
         });
 }
 server.on('upgrade', function upgrade(request, socket, head) {
+    console.log('upgrade');
     socket.on('error', onSocketError);
     // This function is not defined on purpose. Implement it with your own logic.
     authenticate(request, function next(err, client) {

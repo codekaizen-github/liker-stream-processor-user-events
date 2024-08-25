@@ -1,4 +1,4 @@
-import { Kysely, Transaction } from 'kysely';
+import { Kysely, sql, Transaction } from 'kysely';
 import { Database, OrderedStreamEvent, StreamOut, UserEvent } from './types';
 import { findHttpSubscribers } from './httpSubscriberStore';
 import { processStreamEvent } from './streamProcessor';
@@ -142,7 +142,10 @@ export async function processStreamEventInTotalOrder(
     console.log(
         `${orderedStreamEvent.id} getting most recent upstream control`
     );
-    const upstreamControl = await getMostRecentUpstreamControlForUpdate(trx); // Prevents duplicate entry keys and insertions in other tables
+    sql`LOCK TABLE upstreamControl WRITE, streamIn WRITE, user WRITE, userEvent WRITE`.execute(
+        trx
+    );
+    const upstreamControl = await getMostRecentUpstreamControl(trx); // Prevents duplicate entry keys and insertions in other tables
     // const upstreamControl = await getMostRecentUpstreamControl(trx); // Results in duplicate entry keys and insertions in other tables due to async
     console.log(
         `${
@@ -161,7 +164,7 @@ export async function processStreamEventInTotalOrder(
     console.log(`${orderedStreamEvent.id} about to process stream event`);
     await processStreamEvent(trx, orderedStreamEvent);
     console.log(`${orderedStreamEvent.id} processed stream event`);
-    const itWorks = true;
+    const itWorks = false;
     console.log(`${orderedStreamEvent.id} itWorks: ${itWorks}`);
     if (itWorks) {
         if (upstreamControl) {
