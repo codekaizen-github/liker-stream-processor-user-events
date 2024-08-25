@@ -188,17 +188,30 @@ export async function processStreamEventInTotalOrder(
         console.log(
             `${orderedStreamEvent.id}: SELECT streamInId FROM upstreamControl WHERE id = 0 FOR UPDATE;`
         );
-        const upstreamForUpdate =
-            await sql`SELECT streamInId FROM upstreamControl WHERE id = 0 FOR UPDATE`.execute(
-                trx
-            );
+        // const upstreamControl =
+        //     await sql`SELECT streamInId FROM upstreamControl WHERE id = 0 FOR UPDATE`.execute(
+        //         trx
+        //     );
+        const upstreamControl = await getUpstreamControlForUpdate(trx, 0); // Prevents duplicate entry keys and insertions in other tables
         console.log(
             `${
                 orderedStreamEvent.id
             }: RESULT LATER: SELECT streamInId FROM upstreamControl WHERE id = 0 FOR UPDATE: ${JSON.stringify(
-                upstreamForUpdate
+                upstreamControl
             )}`
         );
+        if (!upstreamControl) {
+            throw new Error('Failed to get upstream control for update');
+        }
+        if (orderedStreamEvent.id <= upstreamControl.streamInId) {
+            throw new StreamEventIdDuplicateException();
+        }
+        if (orderedStreamEvent.id > upstreamControl.streamInId + 1) {
+            throw new StreamEventOutOfSequenceException();
+        }
+        console.log(`${orderedStreamEvent.id}: about to process stream event`);
+        await processStreamEvent(trx, orderedStreamEvent);
+        console.log(`${orderedStreamEvent.id}: processed stream event`);
         console.log(
             `${orderedStreamEvent.id}: UPDATE upstreamControl SET streamInId = streamInId + 1 WHERE id = 0;`
         );
@@ -208,6 +221,7 @@ export async function processStreamEventInTotalOrder(
         console.log(`${orderedStreamEvent.id}: COMMIT;`);
     } catch (e) {
         console.error(`${orderedStreamEvent.id}: ERROR ${JSON.stringify(e)}`);
+        throw e;
     }
     // This line is failing - something is holding on to the lock
     // console.log(`${orderedStreamEvent.id} about to get upstream control for update`);
