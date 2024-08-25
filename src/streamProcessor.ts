@@ -1,4 +1,10 @@
-import { Database, NewStreamEvent, NewStreamIn, NewStreamOut, UserEvent } from './types';
+import {
+    Database,
+    NewStreamEvent,
+    NewStreamIn,
+    NewStreamOut,
+    UserEvent,
+} from './types';
 import { Kysely, Transaction } from 'kysely';
 import { createUser, findUserByEmail, findUsers } from './userStore';
 import { UserNotFoundException } from './exceptions';
@@ -10,6 +16,8 @@ import {
     createStreamInFromStreamEvent,
     getAllStreamInsAscending,
 } from './streamInStore';
+import { clientsByEmail } from './server';
+import ws from 'ws';
 
 export async function processStreamEvent(
     trx: Transaction<Database>,
@@ -104,5 +112,14 @@ export async function notifyUserSockets(
     userEvent: UserEvent
 ): Promise<void> {
     // Notify user sockets
-    // const clients = clientsByEmail.get(userEmail)?.write(JSON.stringify(userEvent));
+    const clients = clientsByEmail.get(userEmail);
+    if (clients === undefined) {
+        return;
+    }
+    for (const client of clients) {
+        if (client.readyState !== ws.WebSocket.OPEN) {
+            continue;
+        }
+        client.send(JSON.stringify(userEvent));
+    }
 }
