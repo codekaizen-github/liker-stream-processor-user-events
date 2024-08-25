@@ -13,28 +13,6 @@ import {
     StreamEventIdDuplicateException,
     StreamEventOutOfSequenceException,
 } from './exceptions';
-import { clientsByEmail } from './server';
-import { Console } from 'console';
-import { get } from 'http';
-import { updateStreamOut } from './streamOutStore';
-import { updateStreamIn } from './streamInStore';
-
-/*
-- [ ] Define a function which will add an event to a user stream
-    - [ ] Function should
-        - [ ] Query existing userEvents for that user to find the one with max userEventId
-        - [ ] Calculate the next userEventId (+1)
-        - [ ] Insert
-        - [ ] Notify related streams (sockets)
-*/
-
-export async function notifyUserSockets(
-    userEmail: string,
-    userEvent: UserEvent
-): Promise<void> {
-    // Notify user sockets
-    // const clients = clientsByEmail.get(userEmail)?.write(JSON.stringify(userEvent));
-}
 
 export async function notifySubscribers(
     trx: Transaction<Database>,

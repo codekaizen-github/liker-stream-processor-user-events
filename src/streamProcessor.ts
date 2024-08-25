@@ -1,7 +1,6 @@
-import { Database, NewStreamEvent, NewStreamIn, NewStreamOut } from './types';
+import { Database, NewStreamEvent, NewStreamIn, NewStreamOut, UserEvent } from './types';
 import { Kysely, Transaction } from 'kysely';
 import { createUser, findUserByEmail, findUsers } from './userStore';
-import { notifyUserSockets } from './subscriptions';
 import { UserNotFoundException } from './exceptions';
 import {
     createUserEventFromStreamEvent,
@@ -98,4 +97,12 @@ export async function writeToUserStream(
     }
     // non-blocking
     notifyUserSockets(userEmail, newUserEvent);
+}
+
+export async function notifyUserSockets(
+    userEmail: string,
+    userEvent: UserEvent
+): Promise<void> {
+    // Notify user sockets
+    // const clients = clientsByEmail.get(userEmail)?.write(JSON.stringify(userEvent));
 }
