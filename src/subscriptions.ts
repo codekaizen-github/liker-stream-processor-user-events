@@ -1,5 +1,5 @@
 import { Kysely, sql, Transaction } from 'kysely';
-import { Database, OrderedStreamEvent, StreamOut, UserEvent } from './types';
+import { Database, OrderedStreamEvent, StreamOut } from './types';
 import { findHttpSubscribers } from './httpSubscriberStore';
 import { processStreamEvent } from './streamProcessor';
 import {
@@ -67,6 +67,7 @@ export async function pollForLatest(
 ): Promise<void> {
     console.log('Polling for latest');
     console.log(`Poll about to get upstream control for update`);
+    const upstreamControlLock = await getUpstreamControlForUpdate(trx, 0); // Prevents duplicate entry keys and insertions in other tables
     await insertIntoIgnoreUpstreamControl(trx, { id: 0, streamInId: 0 });
     const upstreamControl = await getUpstreamControlForUpdate(trx, 0); // Prevents duplicate entry keys and insertions in other tables
     if (!upstreamControl) {
