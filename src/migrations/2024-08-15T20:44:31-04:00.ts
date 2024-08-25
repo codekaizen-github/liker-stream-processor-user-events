@@ -19,7 +19,7 @@ export async function up(db: Kysely<any>): Promise<void> {
         .execute();
     await db.schema
         .createTable('upstreamControl')
-        .addColumn('id', 'integer', (col) => col.primaryKey().autoIncrement())
+        .addColumn('id', 'integer', (col) => col.primaryKey())
         .addColumn('streamInId', 'integer', (col) => col.notNull())
         .execute();
     await db.schema

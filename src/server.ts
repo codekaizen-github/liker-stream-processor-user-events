@@ -116,39 +116,45 @@ app.get('/', (req, res) => {
 
 app.post('/streamIn', async (req, res) => {
     console.log('Received streamIn', req.body);
-    await db
-        .transaction()
-        .setIsolationLevel('serializable')
-        .execute(async (trx) => {
-            try {
-                await processStreamEventInTotalOrder(trx, req.body);
-            } catch (e) {
-                // Handle StreamEventIdDuplicateException and StreamEventOutOfSequenceException differently than other exceptions
-                if (e instanceof StreamEventIdDuplicateException) {
-                    // If the event ID is a duplicate, we can safely ignore it
-                    return res.status(200).send();
-                }
-                if (e instanceof StreamEventOutOfSequenceException) {
-                    // If the event ID is out of sequence, there is an issue with the upstream service
-                    // We should stop polling and wait for the upstream service to catch up
-                    if (
-                        process.env
-                            .LIKER_STREAM_PROCESSOR_USER_EVENTS_UPSTREAM_URL_STREAM_OUT ===
-                        undefined
-                    ) {
-                        return;
+    try {
+        await db
+            .transaction()
+            .setIsolationLevel('serializable')
+            .execute(async (trx) => {
+                try {
+                    await processStreamEventInTotalOrder(trx, req.body);
+                } catch (e) {
+                    // Handle StreamEventIdDuplicateException and StreamEventOutOfSequenceException differently than other exceptions
+                    if (e instanceof StreamEventIdDuplicateException) {
+                        // If the event ID is a duplicate, we can safely ignore it
+                        return res.status(200).send();
                     }
-                    pollForLatest(
-                        trx,
-                        process.env
-                            .LIKER_STREAM_PROCESSOR_USER_EVENTS_UPSTREAM_URL_STREAM_OUT
-                    );
-                    return res.status(201).send();
+                    if (e instanceof StreamEventOutOfSequenceException) {
+                        // If the event ID is out of sequence, there is an issue with the upstream service
+                        // We should stop polling and wait for the upstream service to catch up
+                        if (
+                            process.env
+                                .LIKER_STREAM_PROCESSOR_USER_EVENTS_UPSTREAM_URL_STREAM_OUT ===
+                            undefined
+                        ) {
+                            return;
+                        }
+                        // TODO - is the lock still on?
+                        pollForLatest(
+                            trx,
+                            process.env
+                                .LIKER_STREAM_PROCESSOR_USER_EVENTS_UPSTREAM_URL_STREAM_OUT
+                        );
+                        return res.status(201).send();
+                    }
+                    throw e;
                 }
-                throw e;
-            }
-            return res.status(201).send();
-        });
+                return res.status(201).send();
+            });
+    } catch (e) {
+        console.error(e, req.body);
+        return res.status(500).send();
+    }
 });
 
 app.get('/streamOut', async (req, res) => {

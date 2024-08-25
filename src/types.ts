@@ -71,7 +71,7 @@ export type NewHttpSubscription = Insertable<HttpSubscriberTable>;
 export type HttpSubscriptionUpdate = Updateable<HttpSubscriberTable>;
 
 export interface UpstreamControlTable {
-    id: Generated<number>;
+    id: number; // Will always be 0
     streamInId: number;
 }
 

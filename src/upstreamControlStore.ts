@@ -40,20 +40,19 @@ export async function getMostRecentUpstreamControl(trx: Transaction<Database>) {
         .executeTakeFirst();
 }
 
-export async function getMostRecentUpstreamControlForUpdate(
-    trx: Transaction<Database>
+export async function getUpstreamControlForUpdate(
+    trx: Transaction<Database>,
+    id: number
 ) {
-    console.log('getMostRecentUpstreamControl');
     return await trx
         .selectFrom('upstreamControl')
-        .orderBy('id', 'desc')
-        .limit(1)
-        .selectAll()
+        .where('id', '=', id)
         .forUpdate()
+        .selectAll()
         .executeTakeFirst();
 }
 
-export async function updateUpstreamControls(
+export async function updateUpstreamControl(
     trx: Transaction<Database>,
     id: number,
     updateWith: UpstreamControlUpdate
@@ -75,6 +74,17 @@ export async function createUpstreamControl(
         .executeTakeFirstOrThrow();
 
     return await findUpstreamControlById(trx, Number(insertId!));
+}
+
+export async function insertIntoIgnoreUpstreamControl(
+    trx: Transaction<Database>,
+    upstreamControl: NewUpstreamControl
+) {
+    await trx
+        .insertInto('upstreamControl')
+        .values(upstreamControl)
+        .ignore()
+        .execute();
 }
 
 export async function deleteUpstreamControl(
