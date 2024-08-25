@@ -147,18 +147,21 @@ export async function processStreamEventInTotalOrder(
     /*
     START TRANSACTION;
 
-    -- Step 1: Try to insert the row with counter = 0
+    -- Step 1: Lock the row for updates
+    SELECT config_value FROM config_table WHERE config_id = 1 FOR UPDATE;
+
+    -- Step 2: Try to insert the row with counter = 0
     -- If the row already exists, the insert will be ignored
     INSERT IGNORE INTO config_table (config_id, config_value, version)
     VALUES (1, 0, 1);
 
-    -- Step 2: Lock the row for updates
+    -- Step 3: Select the most recent value for the row
     SELECT config_value FROM config_table WHERE config_id = 1 FOR UPDATE;
 
-    -- Step 3: Perform your operations on config_value
+    -- Step 4: Perform your operations on config_value
     UPDATE config_table SET config_value = config_value + 1 WHERE config_id = 1;
 
-    -- Step 4: Commit the transaction
+    -- Step 5: Commit the transaction
     COMMIT;
     */
 
