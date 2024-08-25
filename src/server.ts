@@ -116,6 +116,8 @@ app.get('/', (req, res) => {
 
 app.post('/streamIn', async (req, res) => {
     console.log('Received streamIn', req.body);
+    // Random delay
+    await new Promise((resolve) => setTimeout(resolve, Math.random() * 1000));
     try {
         await db
             .transaction()
@@ -126,10 +128,12 @@ app.post('/streamIn', async (req, res) => {
                 } catch (e) {
                     // Handle StreamEventIdDuplicateException and StreamEventOutOfSequenceException differently than other exceptions
                     if (e instanceof StreamEventIdDuplicateException) {
+                        console.log('Duplicate event ID', req.body);
                         // If the event ID is a duplicate, we can safely ignore it
                         return res.status(200).send();
                     }
                     if (e instanceof StreamEventOutOfSequenceException) {
+                        console.log('Out of sequence event ID', req.body);
                         // If the event ID is out of sequence, there is an issue with the upstream service
                         // We should stop polling and wait for the upstream service to catch up
                         if (

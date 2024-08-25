@@ -125,6 +125,7 @@ export async function poll(
         } catch (e) {
             // Handle StreamEventIdDuplicateException and StreamEventOutOfSequenceException differently than other exceptions
             if (e instanceof StreamEventIdDuplicateException) {
+                console.warn('Stream event ID duplicate');
                 // If the event ID is a duplicate, we can safely ignore it
                 continue;
             }
@@ -162,67 +163,76 @@ export async function processStreamEventInTotalOrder(
     */
 
     // await insertIntoIgnoreUpstreamControl(trx, { id: 0, streamInId: 0 });
-    try {
-        console.log(`${orderedStreamEvent.id}: SET SESSION TRANSACTION ISOLATION LEVEL SERIALIZABLE;`);
-        console.log(`${orderedStreamEvent.id}: START TRANSACTION;`);
-        console.log(
-            `${orderedStreamEvent.id}: SELECT streamInId FROM upstreamControl WHERE id = 0 FOR UPDATE;`
-        );
-        const upstreamForUpdateLock =
-            await sql`SELECT streamInId FROM upstreamControl WHERE id = 0 FOR UPDATE`.execute(
-                trx
-            );
-        console.log(
-            `${
-                orderedStreamEvent.id
-            }: RESULTS INITIAL: SELECT streamInId FROM upstreamControl WHERE id = 0 FOR UPDATE: ${JSON.stringify(
-                upstreamForUpdateLock
-            )}`
-        );
-        console.log(
-            `${orderedStreamEvent.id}: INSERT IGNORE INTO upstreamControl (id, streamInId) VALUES (0, 0);`
-        );
-        await sql`INSERT IGNORE INTO upstreamControl (id, streamInId) VALUES (0, 0)`.execute(
+    console.log(
+        `${orderedStreamEvent.id}: ${JSON.stringify(orderedStreamEvent)}`
+    );
+    console.log(
+        `${orderedStreamEvent.id}: SET SESSION TRANSACTION ISOLATION LEVEL SERIALIZABLE;`
+    );
+    console.log(`${orderedStreamEvent.id}: START TRANSACTION;`);
+    console.log(
+        `${orderedStreamEvent.id}: SELECT streamInId FROM upstreamControl WHERE id = 0 FOR UPDATE;`
+    );
+    const upstreamForUpdateLock =
+        await sql`SELECT streamInId FROM upstreamControl WHERE id = 0 FOR UPDATE`.execute(
             trx
         );
+    console.log(
+        `${
+            orderedStreamEvent.id
+        }: RESULTS INITIAL: SELECT streamInId FROM upstreamControl WHERE id = 0 FOR UPDATE: ${JSON.stringify(
+            upstreamForUpdateLock
+        )}`
+    );
+    console.log(
+        `${orderedStreamEvent.id}: INSERT IGNORE INTO upstreamControl (id, streamInId) VALUES (0, 0);`
+    );
+    await sql`INSERT IGNORE INTO upstreamControl (id, streamInId) VALUES (0, 0)`.execute(
+        trx
+    );
+    console.log(
+        `${orderedStreamEvent.id}: SELECT streamInId FROM upstreamControl WHERE id = 0 FOR UPDATE;`
+    );
+    // const upstreamControl =
+    //     await sql`SELECT streamInId FROM upstreamControl WHERE id = 0 FOR UPDATE`.execute(
+    //         trx
+    //     );
+    const upstreamControl = await getUpstreamControlForUpdate(trx, 0); // Prevents duplicate entry keys and insertions in other tables
+    console.log(
+        `${
+            orderedStreamEvent.id
+        }: RESULT LATER: SELECT streamInId FROM upstreamControl WHERE id = 0 FOR UPDATE: ${JSON.stringify(
+            upstreamControl
+        )}`
+    );
+    if (!upstreamControl) {
         console.log(
-            `${orderedStreamEvent.id}: SELECT streamInId FROM upstreamControl WHERE id = 0 FOR UPDATE;`
+            `${orderedStreamEvent.id}: about to throw error because no upstream control`
         );
-        // const upstreamControl =
-        //     await sql`SELECT streamInId FROM upstreamControl WHERE id = 0 FOR UPDATE`.execute(
-        //         trx
-        //     );
-        const upstreamControl = await getUpstreamControlForUpdate(trx, 0); // Prevents duplicate entry keys and insertions in other tables
-        console.log(
-            `${
-                orderedStreamEvent.id
-            }: RESULT LATER: SELECT streamInId FROM upstreamControl WHERE id = 0 FOR UPDATE: ${JSON.stringify(
-                upstreamControl
-            )}`
-        );
-        if (!upstreamControl) {
-            throw new Error('Failed to get upstream control for update');
-        }
-        if (orderedStreamEvent.id <= upstreamControl.streamInId) {
-            throw new StreamEventIdDuplicateException();
-        }
-        if (orderedStreamEvent.id > upstreamControl.streamInId + 1) {
-            throw new StreamEventOutOfSequenceException();
-        }
-        console.log(`${orderedStreamEvent.id}: about to process stream event`);
-        await processStreamEvent(trx, orderedStreamEvent);
-        console.log(`${orderedStreamEvent.id}: processed stream event`);
-        console.log(
-            `${orderedStreamEvent.id}: UPDATE upstreamControl SET streamInId = streamInId + 1 WHERE id = 0;`
-        );
-        await sql`UPDATE upstreamControl SET streamInId = streamInId + 1 WHERE id = 0`.execute(
-            trx
-        );
-        console.log(`${orderedStreamEvent.id}: COMMIT;`);
-    } catch (e) {
-        console.error(`${orderedStreamEvent.id}: ERROR ${JSON.stringify(e)}`);
-        throw e;
+        throw new Error('Failed to get upstream control for update');
     }
+    if (orderedStreamEvent.id <= upstreamControl.streamInId) {
+        console.log(
+            `${orderedStreamEvent.id}: about to throw error because id is less than or equal to streamInId`
+        );
+        throw new StreamEventIdDuplicateException();
+    }
+    if (orderedStreamEvent.id > upstreamControl.streamInId + 1) {
+        console.log(
+            `${orderedStreamEvent.id}: about to throw error because id is greater than streamInId + 1`
+        );
+        throw new StreamEventOutOfSequenceException();
+    }
+    console.log(`${orderedStreamEvent.id}: about to process stream event`);
+    await processStreamEvent(trx, orderedStreamEvent);
+    console.log(`${orderedStreamEvent.id}: processed stream event`);
+    console.log(
+        `${orderedStreamEvent.id}: UPDATE upstreamControl SET streamInId = streamInId + 1 WHERE id = 0;`
+    );
+    await sql`UPDATE upstreamControl SET streamInId = streamInId + 1 WHERE id = 0`.execute(
+        trx
+    );
+    console.log(`${orderedStreamEvent.id}: COMMIT;`);
     // This line is failing - something is holding on to the lock
     // console.log(`${orderedStreamEvent.id} about to get upstream control for update`);
     // const upstreamControl = await getUpstreamControlForUpdate(trx, 0); // Prevents duplicate entry keys and insertions in other tables
