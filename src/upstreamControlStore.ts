@@ -31,6 +31,19 @@ export async function findUpstreamControls(
 }
 
 export async function getMostRecentUpstreamControl(trx: Transaction<Database>) {
+    console.log('getMostRecentUpstreamControl');
+    return await trx
+        .selectFrom('upstreamControl')
+        .orderBy('id', 'desc')
+        .limit(1)
+        .selectAll()
+        .executeTakeFirst();
+}
+
+export async function getMostRecentUpstreamControlForUpdate(
+    trx: Transaction<Database>
+) {
+    console.log('getMostRecentUpstreamControl');
     return await trx
         .selectFrom('upstreamControl')
         .orderBy('id', 'desc')

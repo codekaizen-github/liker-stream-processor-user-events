@@ -115,6 +115,7 @@ app.get('/', (req, res) => {
 });
 
 app.post('/streamIn', async (req, res) => {
+    console.log('Received streamIn', req.body);
     await db
         .transaction()
         .setIsolationLevel('serializable')

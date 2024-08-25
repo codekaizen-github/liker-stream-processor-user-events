@@ -5,6 +5,8 @@ import { processStreamEvent } from './streamProcessor';
 import {
     createUpstreamControl,
     getMostRecentUpstreamControl,
+    getMostRecentUpstreamControlForUpdate,
+    updateUpstreamControls,
 } from './upstreamControlStore';
 import {
     StreamEventIdDuplicateException,
@@ -80,6 +82,7 @@ export async function pollForLatest(
     trx: Transaction<Database>,
     url: string
 ): Promise<void> {
+    console.log('Polling for latest');
     const upstreamControl = await getMostRecentUpstreamControl(trx);
     const upstreamControlStreamInId = upstreamControl
         ? upstreamControl.streamInId
@@ -105,6 +108,7 @@ export async function poll(
     url: string,
     afterId: number
 ): Promise<void> {
+    console.log('Polling');
     // Gets any stream events between last recorded event and this neweset event (if there are any). Hypothetically, there could be gaps in the streamIn IDs.
     const pollResults = await makePollRequest(url, afterId);
     if (undefined === pollResults?.length || pollResults.length === 0) {
@@ -135,7 +139,16 @@ export async function processStreamEventInTotalOrder(
     trx: Transaction<Database>,
     orderedStreamEvent: OrderedStreamEvent
 ): Promise<void> {
-    const upstreamControl = await getMostRecentUpstreamControl(trx);
+    console.log(
+        `${orderedStreamEvent.id} getting most recent upstream control`
+    );
+    const upstreamControl = await getMostRecentUpstreamControlForUpdate(trx); // Prevents duplicate entry keys and insertions in other tables
+    // const upstreamControl = await getMostRecentUpstreamControl(trx); // Results in duplicate entry keys and insertions in other tables due to async
+    console.log(
+        `${
+            orderedStreamEvent.id
+        } got most recent upstream control: ${JSON.stringify(upstreamControl)}`
+    );
     const upstreamControlStreamInId = upstreamControl
         ? upstreamControl.streamInId
         : 0;
@@ -145,7 +158,29 @@ export async function processStreamEventInTotalOrder(
     if (orderedStreamEvent.id > upstreamControlStreamInId + 1) {
         throw new StreamEventOutOfSequenceException();
     }
+    console.log(`${orderedStreamEvent.id} about to process stream event`);
     await processStreamEvent(trx, orderedStreamEvent);
-    await trx.deleteFrom('upstreamControl').execute();
-    await createUpstreamControl(trx, { streamInId: orderedStreamEvent.id });
+    console.log(`${orderedStreamEvent.id} processed stream event`);
+    const itWorks = true;
+    console.log(`${orderedStreamEvent.id} itWorks: ${itWorks}`);
+    if (itWorks) {
+        if (upstreamControl) {
+            await updateUpstreamControls(trx, upstreamControl.id, {
+                streamInId: orderedStreamEvent.id,
+            });
+            console.log(`${orderedStreamEvent.id} updated upstream control`);
+        } else {
+            await createUpstreamControl(trx, {
+                streamInId: orderedStreamEvent.id,
+            });
+            console.log(
+                `${orderedStreamEvent.id} created new upstream control`
+            );
+        }
+    } else {
+        await trx.deleteFrom('upstreamControl').execute();
+        console.log(`${orderedStreamEvent.id} deleted upstream control`);
+        await createUpstreamControl(trx, { streamInId: orderedStreamEvent.id });
+        console.log(`${orderedStreamEvent.id} created new upstream control`);
+    }
 }
