@@ -34,9 +34,9 @@ const server = createServer();
 const wss = new ws.WebSocketServer({ noServer: true });
 wss.on('connection', function connection(ws) {
     ws.on('message', function message(data) {
-        ws.send(`received: ${data}`);
+        // ws.send(`received: ${data}`);
     });
-    ws.send('something');
+    // ws.send('something');
 });
 function onSocketError(err: Error) {
     console.error('WebSocket error:', err);
