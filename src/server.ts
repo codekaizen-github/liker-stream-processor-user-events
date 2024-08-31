@@ -42,7 +42,16 @@ function authenticate(
     request: IncomingMessage,
     callback: (err: Error | null, client: User | null) => void
 ) {
-    const email = request.headers['email'];
+    console.log(JSON.stringify(request));
+    // Parse the url search params in request.url
+    // Extract the email search param from a URL like /?email=...
+    console.log({ url: request.url });
+    // Dummy base URL
+    const url = new URL(request.url || '', 'http://localhost');
+    const searchParams = new URLSearchParams(url.search);
+    console.log({ searchParams });
+    const email = searchParams.get('email');
+    console.log({ email });
     if (email === undefined) {
         callback(new Error('Email header not found'), null);
         return;
