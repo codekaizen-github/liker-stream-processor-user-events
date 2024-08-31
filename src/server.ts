@@ -25,6 +25,9 @@ import ws from 'ws';
 import { findUserByEmail } from './userStore';
 import { User } from './types';
 export const clientsByEmail = new Map<string, ws[]>();
+import cors from 'cors';
+import { findUserEventsGreaterThanUserEventId } from './userEventStore';
+
 // Create a WebSocket server
 const wsPort = 8080;
 const server = createServer();
@@ -42,16 +45,16 @@ function authenticate(
     request: IncomingMessage,
     callback: (err: Error | null, client: User | null) => void
 ) {
-    console.log(JSON.stringify(request));
+    // console.log(JSON.stringify(request));
     // Parse the url search params in request.url
     // Extract the email search param from a URL like /?email=...
-    console.log({ url: request.url });
+    // console.log({ url: request.url });
     // Dummy base URL
     const url = new URL(request.url || '', 'http://localhost');
     const searchParams = new URLSearchParams(url.search);
-    console.log({ searchParams });
+    // console.log({ searchParams });
     const email = searchParams.get('email');
-    console.log({ email });
+    // console.log({ email });
     if (email === undefined) {
         callback(new Error('Email header not found'), null);
         return;
@@ -115,6 +118,11 @@ server.listen(wsPort, () => {
 const port = 80;
 const app = express();
 
+app.use(
+    cors({
+        origin: '*',
+    })
+);
 app.use(express.json());
 
 // Define a route for the root path ('/')
@@ -170,21 +178,51 @@ app.post('/streamIn', async (req, res) => {
     }
 });
 
-app.get('/streamOut', async (req, res) => {
+// app.get('/streamOut', async (req, res) => {
+//     // Get the query parameter 'afterId' from the request
+//     const afterId = Number(req.query.afterId);
+//     await db
+//         .transaction()
+//         .setIsolationLevel('serializable')
+//         .execute(async (trx) => {
+//             const records = await findStreamOutsGreaterThanStreamOutId(
+//                 trx,
+//                 afterId
+//             );
+//             return res.json(records);
+//         });
+//     // Find all log records with an ID greater than 'afterId'
+//     // Send the records to the client
+// });
+
+app.get('/userEvent', async (req, res) => {
+    // Get the user email from the query parameters
+    const email = req.query.email;
+    if (email === undefined) {
+        return res.status(400).send();
+    }
     // Get the query parameter 'afterId' from the request
     const afterId = Number(req.query.afterId);
+    if (isNaN(afterId)) {
+        return res.status(400).send();
+    }
+    // Get the user with the specified email
     await db
         .transaction()
         .setIsolationLevel('serializable')
         .execute(async (trx) => {
-            const records = await findStreamOutsGreaterThanStreamOutId(
+            const user = await findUserByEmail(trx, email.toString());
+            if (user === undefined) {
+                return res.status(404).send();
+            }
+            // Get the events for the user
+            const records = await findUserEventsGreaterThanUserEventId(
                 trx,
+                user.id,
                 afterId
             );
             return res.json(records);
         });
-    // Find all log records with an ID greater than 'afterId'
-    // Send the records to the client
 });
 
 app.post('/httpSubscriber/register', async (req, res) => {

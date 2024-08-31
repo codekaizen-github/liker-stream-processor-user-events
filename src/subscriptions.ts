@@ -146,7 +146,7 @@ export async function processStreamEventInTotalOrder(
     -- Step 5: Commit the transaction
     COMMIT;
     */
-    const upstreamForUpdateLock = getUpstreamControlForUpdate(trx, 0); // Prevents duplicate entry keys and insertions in other tables
+    const upstreamForUpdateLock = await getUpstreamControlForUpdate(trx, 0); // Prevents duplicate entry keys and insertions in other tables
     const upstreamControlIgnore = await insertIntoIgnoreUpstreamControl(trx, {
         id: 0,
         streamInId: 0,
@@ -162,9 +162,7 @@ export async function processStreamEventInTotalOrder(
         throw new StreamEventOutOfSequenceException();
     }
     await processStreamEvent(trx, orderedStreamEvent);
-    await updateUpstreamControl(
-        trx,
-        upstreamControl.id,
-        { streamInId: upstreamControl.streamInId + 1}
-    );
+    await updateUpstreamControl(trx, upstreamControl.id, {
+        streamInId: upstreamControl.streamInId + 1,
+    });
 }

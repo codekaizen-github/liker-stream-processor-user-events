@@ -35,9 +35,13 @@ export async function findUserEvents(
 
 export async function findUserEventsGreaterThanUserEventId(
     trx: Transaction<Database>,
-    id: number
+    userId: number,
+    userEventId: number
 ) {
-    let query = trx.selectFrom('userEvent').where('id', '>', id);
+    let query = trx
+        .selectFrom('userEvent')
+        .where('userId', '=', userId)
+        .where('userEventId', '>', userEventId);
     return await query.selectAll().execute();
 }
 
