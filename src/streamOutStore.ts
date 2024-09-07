@@ -1,12 +1,6 @@
 import { Transaction } from 'kysely';
-import {
-    StreamOutUpdate,
-    StreamOut,
-    NewStreamOut,
-    Database,
-    NewStreamEvent,
-    OrderedStreamEvent,
-} from './types';
+import { StreamOutUpdate, StreamOut, NewStreamOut, Database } from './types';
+import { NewTotallyOrderedStreamEvent } from './transmissionControl/types';
 
 export async function findStreamOutById(
     trx: Transaction<Database>,
@@ -31,14 +25,28 @@ export async function findStreamOuts(
     return await query.selectAll().execute();
 }
 
+export async function getAllStreamOutsDescending(trx: Transaction<Database>) {
+    return await trx
+        .selectFrom('streamOut')
+        .orderBy('id', 'desc')
+        .selectAll()
+        .execute();
+}
+
+export async function getAllStreamOutsAscending(trx: Transaction<Database>) {
+    const results = await trx
+        .selectFrom('streamOut')
+        .orderBy('id', 'asc')
+        .selectAll()
+        .execute();
+    return results;
+}
+
 export async function findStreamOutsGreaterThanStreamOutId(
     trx: Transaction<Database>,
     id: number
 ) {
-    let query = trx
-        .selectFrom('streamOut')
-        .where('id', '>', id)
-        .orderBy('id', 'asc');
+    let query = trx.selectFrom('streamOut').where('id', '>', id);
     return await query.selectAll().execute();
 }
 
@@ -64,19 +72,19 @@ export async function updateStreamOut(
 }
 
 export async function createStreamOutFromStreamEvent(
-        trx: Transaction<Database>,
-        streamEvent: NewStreamEvent | OrderedStreamEvent
-    ) {
-        const streamOut = await createStreamOut(trx, {
-            ...streamEvent,
-            id: undefined,
-            data: JSON.stringify(streamEvent.data),
-        });
-        if (streamOut === undefined) {
-            return undefined;
-        }
-        return streamOut;
+    trx: Transaction<Database>,
+    streamEvent: NewTotallyOrderedStreamEvent
+) {
+    const streamOut = await createStreamOut(trx, {
+        ...streamEvent,
+        id: undefined,
+        totalOrderId: streamEvent.totalOrderId,
+    });
+    if (streamOut === undefined) {
+        return undefined;
     }
+    return streamOut;
+}
 
 export async function createStreamOut(
     trx: Transaction<Database>,

@@ -2,31 +2,18 @@
 import express from 'express';
 import { createServer, IncomingMessage } from 'http';
 import { db } from './database';
-import {
-    findStreamOutsGreaterThanStreamOutId,
-    getMostRecentStreamOut,
-} from './streamOutStore';
-import {
-    createHttpSubscriber,
-    deleteHttpSubscriber,
-    findHttpSubscribers,
-} from './httpSubscriberStore';
-import {
-    notifySubscribers,
-    pollForLatest,
-    processStreamEventInTotalOrder,
-    subscribe,
-} from './subscriptions';
-import {
-    StreamEventIdDuplicateException,
-    StreamEventOutOfSequenceException,
-} from './exceptions';
 import ws from 'ws';
 import { findUserByEmail } from './userStore';
 import { User } from './types';
 export const clientsByEmail = new Map<string, ws[]>();
 import cors from 'cors';
 import { findUserEventsGreaterThanUserEventId } from './userEventStore';
+import { buildFetchUpstream } from './transmissionControl/buildFetchUpstream';
+import { subscribe } from './subscribe';
+import { syncUpstream } from './transmissionControl/syncUpstream';
+import { getMostRecentTotallyOrderedStreamEvent } from './getMostRecentTotallyOrderedStreamEvent';
+import { notifySubscribers } from './transmissionControl/notifySubscribers';
+import onEvent from './transmissionControl/onEvent';
 
 // Create a WebSocket server
 const wsPort = 8080;
@@ -131,69 +118,28 @@ app.get('/', (req, res) => {
     res.send('Hello, TypeScript + Node.js + Express!');
 });
 
-app.post('/streamIn', async (req, res) => {
-    console.log('Received streamIn', req.body);
-    // Random delay
-    await new Promise((resolve) => setTimeout(resolve, Math.random() * 1000));
+app.post('/streamOut', async (req, res) => {
     try {
-        await db
-            .transaction()
-            .setIsolationLevel('serializable')
-            .execute(async (trx) => {
-                try {
-                    await processStreamEventInTotalOrder(trx, req.body);
-                } catch (e) {
-                    // Handle StreamEventIdDuplicateException and StreamEventOutOfSequenceException differently than other exceptions
-                    if (e instanceof StreamEventIdDuplicateException) {
-                        console.log('Duplicate event ID', req.body);
-                        // If the event ID is a duplicate, we can safely ignore it
-                        return res.status(200).send();
-                    }
-                    if (e instanceof StreamEventOutOfSequenceException) {
-                        console.log('Out of sequence event ID', req.body);
-                        // If the event ID is out of sequence, there is an issue with the upstream service
-                        // We should stop polling and wait for the upstream service to catch up
-                        if (
-                            process.env
-                                .LIKER_STREAM_PROCESSOR_USER_EVENTS_UPSTREAM_URL_STREAM_OUT ===
-                            undefined
-                        ) {
-                            return;
-                        }
-                        // TODO - is the lock still on?
-                        pollForLatest(
-                            trx,
-                            process.env
-                                .LIKER_STREAM_PROCESSOR_USER_EVENTS_UPSTREAM_URL_STREAM_OUT
-                        );
-                        return res.status(201).send();
-                    }
-                    throw e;
-                }
-                return res.status(201).send();
-            });
+        if (
+            process.env
+                .LIKER_STREAM_PROCESSOR_USER_EVENTS_UPSTREAM_URL_STREAM_OUT ===
+            undefined
+        ) {
+            throw new Error('Upstream URL is not defined');
+        }
+        await onEvent(
+            req.body,
+            buildFetchUpstream(
+                process.env
+                    .LIKER_STREAM_PROCESSOR_USER_EVENTS_UPSTREAM_URL_STREAM_OUT
+            )
+        );
     } catch (e) {
-        console.error(e, req.body);
+        console.error(e);
         return res.status(500).send();
     }
+    return res.status(201).send();
 });
-
-// app.get('/streamOut', async (req, res) => {
-//     // Get the query parameter 'afterId' from the request
-//     const afterId = Number(req.query.afterId);
-//     await db
-//         .transaction()
-//         .setIsolationLevel('serializable')
-//         .execute(async (trx) => {
-//             const records = await findStreamOutsGreaterThanStreamOutId(
-//                 trx,
-//                 afterId
-//             );
-//             return res.json(records);
-//         });
-//     // Find all log records with an ID greater than 'afterId'
-//     // Send the records to the client
-// });
 
 app.get('/userEvent', async (req, res) => {
     // Get the user email from the query parameters
@@ -222,41 +168,6 @@ app.get('/userEvent', async (req, res) => {
                 afterId
             );
             return res.json(records);
-        });
-});
-
-app.post('/httpSubscriber/register', async (req, res) => {
-    await db
-        .transaction()
-        .setIsolationLevel('serializable')
-        .execute(async (trx) => {
-            const existing = await findHttpSubscribers(trx, {
-                url: req.body.url,
-            });
-            if (existing.length > 0) {
-                return res.status(200).send();
-            }
-            const result = createHttpSubscriber(trx, req.body);
-            return res.status(201).send();
-        });
-});
-
-app.post('/httpSubscriber/unregister', async (req, res) => {
-    await db
-        .transaction()
-        .setIsolationLevel('serializable')
-        .execute(async (trx) => {
-            const existing = await findHttpSubscribers(trx, {
-                url: req.body.url,
-            });
-            if (existing.length > 0) {
-                // delete
-                for (const subscription of existing) {
-                    await deleteHttpSubscriber(trx, subscription.id);
-                }
-                return res.status(200).send();
-            }
-            return res.status(404).send();
         });
 });
 
@@ -289,36 +200,31 @@ app.listen(port, () => {
 
 // Poll for the latest log records
 (async () => {
-    await db
-        .transaction()
-        .setIsolationLevel('serializable')
-        .execute(async (trx) => {
-            if (
-                process.env
-                    .LIKER_STREAM_PROCESSOR_USER_EVENTS_UPSTREAM_URL_STREAM_OUT ===
-                undefined
-            ) {
-                return;
-            }
-            await pollForLatest(
-                trx,
-                process.env
-                    .LIKER_STREAM_PROCESSOR_USER_EVENTS_UPSTREAM_URL_STREAM_OUT
-            );
-        });
+    try {
+        if (
+            process.env
+                .LIKER_STREAM_PROCESSOR_USER_EVENTS_UPSTREAM_URL_STREAM_OUT ===
+            undefined
+        ) {
+            return;
+        }
+        const fetchUpstream = buildFetchUpstream(
+            process.env
+                .LIKER_STREAM_PROCESSOR_USER_EVENTS_UPSTREAM_URL_STREAM_OUT
+        );
+        await syncUpstream(fetchUpstream);
+    } catch (e) {
+        console.error(e);
+    }
 })();
 
 // Get the most recent log record and notify subscribers
-(async () => {
-    await db
-        .transaction()
-        .setIsolationLevel('serializable')
-        .execute(async (trx) => {
-            const record = await getMostRecentStreamOut(trx);
-            if (record === undefined) {
-                return;
-            }
-            // non-blocking
-            notifySubscribers(trx, record);
-        });
-})();
+// TODO Fix so that we push most recent events for each unique websocket/client
+// (async () => {
+//     const result = await getMostRecentTotallyOrderedStreamEvent();
+//     if (result === undefined) {
+//         return;
+//     }
+//     // non-blocking
+//     notifySubscribers(result);
+// })();

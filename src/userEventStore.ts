@@ -1,14 +1,5 @@
 import { Transaction } from 'kysely';
-import {
-    UserEventUpdate,
-    UserEvent,
-    NewUserEvent,
-    Database,
-    NewStreamEvent,
-    OrderedStreamEvent,
-    NewUserStreamEvent,
-    OrderedUserStreamEvent,
-} from './types';
+import { UserEventUpdate, UserEvent, NewUserEvent, Database } from './types';
 
 export async function findUserEventById(
     trx: Transaction<Database>,
@@ -29,6 +20,15 @@ export async function findUserEvents(
 
     if (criteria.id) {
         query = query.where('id', '=', criteria.id); // Kysely is immutable, you must re-assign!
+    }
+    if (criteria.totalOrderId) {
+        query = query.where('totalOrderId', '=', criteria.totalOrderId);
+    }
+    if (criteria.userId) {
+        query = query.where('userId', '=', criteria.userId);
+    }
+    if (criteria.userEventId) {
+        query = query.where('userEventId', '=', criteria.userEventId);
     }
     return await query.selectAll().execute();
 }
@@ -68,21 +68,6 @@ export async function updateUserEvent(
         .set(updateWith)
         .where('id', '=', id)
         .execute();
-}
-
-export async function createUserEventFromStreamEvent(
-    trx: Transaction<Database>,
-    streamEvent: NewUserStreamEvent | OrderedUserStreamEvent
-) {
-    const streamOut = await createUserEvent(trx, {
-        ...streamEvent,
-        id: undefined,
-        data: JSON.stringify(streamEvent.data),
-    });
-    if (streamOut === undefined) {
-        return undefined;
-    }
-    return streamOut;
 }
 
 export async function createUserEvent(

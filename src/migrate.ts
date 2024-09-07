@@ -1,7 +1,10 @@
 import * as path from 'path';
+import { Pool } from 'mysql2';
 import { promises as fs } from 'fs';
 import {
+    Kysely,
     Migrator,
+    PostgresDialect,
     FileMigrationProvider,
     NO_MIGRATIONS,
     MigrationResult,
