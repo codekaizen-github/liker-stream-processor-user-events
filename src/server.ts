@@ -118,7 +118,7 @@ app.get('/', (req, res) => {
     res.send('Hello, TypeScript + Node.js + Express!');
 });
 
-app.post('/streamOut', async (req, res) => {
+app.post('/streamIn', async (req, res) => {
     try {
         if (
             process.env

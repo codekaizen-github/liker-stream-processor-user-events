@@ -76,10 +76,16 @@ export async function createUserEvent(
 ) {
     const { insertId } = await trx
         .insertInto('userEvent')
-        .values(userEvent)
+        .values({
+            ...userEvent,
+            data: JSON.stringify(userEvent.data),
+        })
         .executeTakeFirstOrThrow();
-
-    return await findUserEventById(trx, Number(insertId!));
+    const userEventResult = await findUserEventById(trx, Number(insertId));
+    if (userEventResult === undefined) {
+        throw new Error('Failed to create user event');
+    }
+    return userEventResult;
 }
 
 export async function deleteUserEvent(trx: Transaction<Database>, id: number) {

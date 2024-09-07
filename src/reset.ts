@@ -7,8 +7,6 @@ async function reset() {
     await sql`Set FOREIGN_KEY_CHECKS=0`.execute(db);
     await sql`TRUNCATE TABLE streamOut`.execute(db);
     console.log('Truncated streamOut');
-    await sql`TRUNCATE TABLE streamOut`.execute(db);
-    console.log('Truncated streamOut');
     await sql`TRUNCATE TABLE upstreamControl`.execute(db);
     console.log('Truncated upstreamControl');
     await sql`TRUNCATE TABLE userEvent`.execute(db);

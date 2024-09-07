@@ -19,6 +19,7 @@ export async function createTotallyOrderedStreamEvents(
     trx: Transaction<Database>,
     streamEvent: NewTotallyOrderedStreamEvent
 ): Promise<TotallyOrderedStreamEvent[]> {
+    console.log('createTotallyOrderedStreamEvents', {streamEvent});
     const results: TotallyOrderedStreamEvent[] = [];
     const userEmail = streamEvent.data?.payload?.user?.email;
     if (streamEvent.data.type === 'create-new-user-succeeded') {
@@ -42,6 +43,7 @@ export async function createTotallyOrderedStreamEvents(
                             userEmail === undefined ||
                             userEmail === newUser.email
                         ) {
+                            console.log('notifying user after creating', {newUser})
                             // Notify user
                             const userStreamEvent =
                                 await writeToUserStreamEventsByEmail(
@@ -56,29 +58,51 @@ export async function createTotallyOrderedStreamEvents(
         }
     }
     // This is the only one we will return
+    console.log("before createStreamOutFromStreamEvent");
     const streamOut = await createStreamOutFromStreamEvent(trx, streamEvent);
+
+    console.log("after createStreamOutFromStreamEvent");
+
     if (streamOut === undefined) {
         throw new Error('Failed to create stream in');
     }
+    results.push(streamOut);
     if (userEmail !== undefined) {
+        console.log('notifying user because event is specific to them', {userEmail})
         // Notify user
-        const userEvent = await writeToUserStreamEventsByEmail(
-            trx,
-            userEmail,
-            streamOut
-        );
+        try {
+            const userEvent = await writeToUserStreamEventsByEmail(
+                trx,
+                userEmail,
+                streamOut
+            );
+        } catch (e) {
+            if (e instanceof UserNotFoundException) {
+                console.error('User not found: ', {userEmail})
+                return results;
+            }
+            throw e;
+        }
         return results;
     }
     // Else notify all user streams
     const users = await findUsers(trx, {});
     for (const user of users) {
+        console.log("notifying user because all users", {user})
+        try {
+        } catch (e) {
+            if (e instanceof UserNotFoundException) {
+                console.error('User not found: ', {userEmail})
+                continue;
+            }
+            throw e;
+        }
         const userEvent = await writeToUserStreamEventsByEmail(
             trx,
             user.email,
             streamOut
         );
     }
-    results.push(streamOut);
     return results;
 }
 
