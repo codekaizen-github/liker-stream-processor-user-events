@@ -16,8 +16,8 @@ export async function syncUpstream(fetchUpstream: FetchUpstream) {
         .transaction()
         .setIsolationLevel('serializable')
         .execute(async (trx) => {
-            // const upstreamForUpdateLock =
-            //     await getUpstreamControlForUpdate(trx, 0); // Prevents duplicate entry keys and insertions in other tables
+            const upstreamForUpdateLock =
+                await getUpstreamControlForUpdate(trx, 0); // Prevents duplicate entry keys and insertions in other tables
             const upstreamControlIgnore = await insertIntoIgnoreUpstreamControl(
                 trx,
                 {
