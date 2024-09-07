@@ -8,6 +8,7 @@
 	// https://containers.dev/guide/dockerfile
 	// https://github.com/microsoft/vscode-remote-release/issues/2485
 	"initializeCommand": "docker network create liker || echo 'Already exists'",
+	"postAttachCommand": "git config --global --add safe.directory /workspace",
     "customizations": {
 		"vscode": {
 			"settings": {
