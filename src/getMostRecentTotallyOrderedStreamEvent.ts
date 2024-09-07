@@ -10,9 +10,6 @@ export async function getMostRecentTotallyOrderedStreamEvent(): Promise<
         if (streamOut === undefined) {
             return undefined;
         }
-        return {
-            ...streamOut,
-            totalOrderId: streamOut.id,
-        };
+        return streamOut;
     });
 }

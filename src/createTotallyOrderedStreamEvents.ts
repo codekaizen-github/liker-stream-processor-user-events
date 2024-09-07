@@ -124,9 +124,10 @@ export async function writeToUserStreamEventsByEmail(
         ? mostRecentUserEventByUserId.userEventId
         : 0;
     const newUserEvent = await createUserEvent(trx, {
-        ...totallyOrderedStreamEvent,
+        totalOrderId: totallyOrderedStreamEvent.totalOrderId,
         userId: existingUser.id,
         userEventId: mostRecentUserEventUserEventId + 1,
+        data: totallyOrderedStreamEvent.data,
     });
     if (newUserEvent === undefined) {
         throw new Error('Failed to create user event');
