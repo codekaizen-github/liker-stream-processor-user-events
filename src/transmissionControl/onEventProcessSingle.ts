@@ -2,7 +2,7 @@ import { db } from '../database';
 import {
     StreamEventIdDuplicateException,
     StreamEventOutOfSequenceException,
-} from '../exceptions';
+} from './exceptions';
 import {
     getUpstreamControlForUpdate,
     insertIntoIgnoreUpstreamControl,

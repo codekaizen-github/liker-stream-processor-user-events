@@ -1,7 +1,7 @@
 import {
     StreamEventIdDuplicateException,
     StreamEventOutOfSequenceException,
-} from '../exceptions';
+} from './exceptions';
 import { FetchUpstream } from './buildFetchUpstream';
 import { notifySubscribers } from './notifySubscribers';
 import { onEventProcessSingle } from './onEventProcessSingle';
