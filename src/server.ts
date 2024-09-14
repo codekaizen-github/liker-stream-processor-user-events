@@ -152,17 +152,28 @@ app.get('/streamOut', async (req, res) => {
         return res.status(400).send();
     }
     // Ignore
-    const totalOrderId = Number(req.query.totalOrderId);
-    const eventIdStart = Number(req.query.eventIdStart);
-    const eventIdEnd = req.query.eventIdEnd
+    let totalOrderId = !isNaN(Number(req.query.totalOrderId))
+        ? Number(req.query.totalOrderId)
+        : undefined;
+    let eventIdStart = !isNaN(Number(req.query.eventIdStart))
+        ? Number(req.query.eventIdStart)
+        : undefined;
+    let eventIdEnd = !isNaN(Number(req.query.eventIdEnd))
         ? Number(req.query.eventIdEnd)
         : undefined;
-    const limit = req.query.limit ? Number(req.query.limit) : undefined;
-    const offset = req.query.offset ? Number(req.query.offset) : undefined;
+    let limit = !isNaN(Number(req.query.limit))
+        ? Number(req.query.limit)
+        : undefined;
+    let offset = !isNaN(Number(req.query.offset))
+        ? Number(req.query.offset)
+        : undefined;
     // Get the upstreamControl lock
     const upstreamControl = await getUpstreamControl();
     // Make sure that our replica is up to date
-    if (upstreamControl.totalOrderId < totalOrderId) {
+    if (
+        totalOrderId !== undefined &&
+        upstreamControl.totalOrderId < totalOrderId
+    ) {
         if (
             process.env
                 .LIKER_STREAM_PROCESSOR_TRUTH_SAYER_UPSTREAM_URL_STREAM_OUT ===

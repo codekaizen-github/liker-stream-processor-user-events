@@ -41,11 +41,13 @@ export async function findUserEvents(
 
 export function getTotallyOrderedUserStreamEventQueryBuilder(
     trx: Transaction<Database>,
-    eventIdStart: number,
+    eventIdStart?: number,
     eventIdEnd?: number
 ): SelectQueryBuilder<Database, 'userEvent', {}> {
     let query = trx.selectFrom('userEvent');
-    query.where('id', '>=', eventIdStart);
+    if (eventIdStart !== undefined) {
+        query.where('id', '>=', eventIdStart);
+    }
     if (eventIdEnd !== undefined) {
         query = query.where('id', '<=', eventIdEnd); // Kysely is immutable, you must re-assign!
     }
@@ -54,7 +56,7 @@ export function getTotallyOrderedUserStreamEventQueryBuilder(
 
 export async function findTotallyOrderedUserStreamEvents(
     trx: Transaction<Database>,
-    eventIdStart: number,
+    eventIdStart?: number,
     eventIdEnd?: number,
     limit?: number,
     offset?: number
@@ -66,9 +68,9 @@ export async function findTotallyOrderedUserStreamEvents(
     );
     if (limit !== undefined) {
         query = query.limit(limit);
-    }
-    if (offset !== undefined) {
-        query = query.offset(offset);
+        if (offset !== undefined) {
+            query = query.offset(offset);
+        }
     }
     const queryResults = await query.selectAll().orderBy('id', 'asc').execute();
     return queryResults.map((result) => {
