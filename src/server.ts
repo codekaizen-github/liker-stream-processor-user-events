@@ -121,6 +121,7 @@ app.get('/', (req, res) => {
 });
 
 app.post('/streamIn', async (req, res) => {
+    console.log({ jsonReq: JSON.stringify(req) });
     try {
         if (
             process.env
