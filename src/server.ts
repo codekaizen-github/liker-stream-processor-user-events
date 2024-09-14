@@ -7,13 +7,15 @@ import { findUserByEmail } from './userStore';
 import { User } from './types';
 export const clientsByEmail = new Map<string, ws[]>();
 import cors from 'cors';
-import { findUserEventsGreaterThanUserEventId } from './userEventStore';
+import { findTotallyOrderedUserStreamEvents } from './userEventStore';
 import { buildFetchUpstream } from './transmissionControl/buildFetchUpstream';
 import { subscribe } from './subscribe';
-import { syncUpstream } from './transmissionControl/syncUpstream';
-import { getMostRecentTotallyOrderedStreamEvent } from './getMostRecentTotallyOrderedStreamEvent';
-import { notifySubscribers } from './transmissionControl/notifySubscribers';
+import {
+    syncUpstream,
+    syncUpstreamFromUpstreamControl,
+} from './transmissionControl/syncUpstream';
 import onEvent from './transmissionControl/onEvent';
+import { getUpstreamControl } from './getUpstreamControl';
 
 // Create a WebSocket server
 const wsPort = 8080;
@@ -141,18 +143,42 @@ app.post('/streamIn', async (req, res) => {
     return res.status(201).send();
 });
 
-app.get('/userEvent', async (req, res) => {
+app.get('/streamOut', async (req, res) => {
+    console.log({ query: JSON.stringify(req.query) });
     // Get the user email from the query parameters
     const email = req.query.email;
     if (email === undefined) {
         return res.status(400).send();
     }
-    // Get the query parameter 'afterId' from the request
-    const afterId = Number(req.query.afterId);
-    if (isNaN(afterId)) {
-        return res.status(400).send();
+    // Ignore
+    const totalOrderId = Number(req.query.totalOrderId);
+    const eventIdStart = Number(req.query.eventIdStart);
+    const eventIdEnd = req.query.eventIdEnd
+        ? Number(req.query.eventIdEnd)
+        : undefined;
+    const limit = req.query.limit ? Number(req.query.limit) : undefined;
+    const offset = req.query.offset ? Number(req.query.offset) : undefined;
+    // Get the upstreamControl lock
+    const upstreamControl = await getUpstreamControl();
+    // Make sure that our replica is up to date
+    if (upstreamControl.totalOrderId < totalOrderId) {
+        if (
+            process.env
+                .LIKER_STREAM_PROCESSOR_TRUTH_SAYER_UPSTREAM_URL_STREAM_OUT ===
+            undefined
+        ) {
+            throw new Error('Upstream URL is not defined');
+        }
+        await syncUpstream(
+            buildFetchUpstream(
+                process.env
+                    .LIKER_STREAM_PROCESSOR_TRUTH_SAYER_UPSTREAM_URL_STREAM_OUT
+            ),
+            totalOrderId,
+            upstreamControl.streamId
+            // eventIdEnd // We can't stop here because the eventIdEnd passed in params is not the same eventIdEnd in the upstream
+        );
     }
-    // Get the user with the specified email
     await db
         .transaction()
         .setIsolationLevel('serializable')
@@ -162,10 +188,12 @@ app.get('/userEvent', async (req, res) => {
                 return res.status(404).send();
             }
             // Get the events for the user
-            const records = await findUserEventsGreaterThanUserEventId(
+            const records = await findTotallyOrderedUserStreamEvents(
                 trx,
-                user.id,
-                afterId
+                eventIdStart,
+                eventIdEnd,
+                limit,
+                offset
             );
             return res.json(records);
         });
@@ -212,7 +240,7 @@ app.listen(port, () => {
             process.env
                 .LIKER_STREAM_PROCESSOR_USER_EVENTS_UPSTREAM_URL_STREAM_OUT
         );
-        await syncUpstream(fetchUpstream);
+        await syncUpstreamFromUpstreamControl(fetchUpstream);
     } catch (e) {
         console.error(e);
     }

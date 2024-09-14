@@ -1,5 +1,11 @@
-import { Transaction } from 'kysely';
-import { UserEventUpdate, UserEvent, NewUserEvent, Database } from './types';
+import { SelectQueryBuilder, Transaction } from 'kysely';
+import {
+    UserEventUpdate,
+    UserEvent,
+    NewUserEvent,
+    Database,
+    User,
+} from './types';
 
 export async function findUserEventById(
     trx: Transaction<Database>,
@@ -31,6 +37,46 @@ export async function findUserEvents(
         query = query.where('userEventId', '=', criteria.userEventId);
     }
     return await query.selectAll().execute();
+}
+
+export function getTotallyOrderedUserStreamEventQueryBuilder(
+    trx: Transaction<Database>,
+    eventIdStart: number,
+    eventIdEnd?: number
+): SelectQueryBuilder<Database, 'userEvent', {}> {
+    let query = trx.selectFrom('userEvent');
+    query.where('id', '>=', eventIdStart);
+    if (eventIdEnd !== undefined) {
+        query = query.where('id', '<=', eventIdEnd); // Kysely is immutable, you must re-assign!
+    }
+    return query;
+}
+
+export async function findTotallyOrderedUserStreamEvents(
+    trx: Transaction<Database>,
+    eventIdStart: number,
+    eventIdEnd?: number,
+    limit?: number,
+    offset?: number
+): Promise<UserEvent[]> {
+    let query = getTotallyOrderedUserStreamEventQueryBuilder(
+        trx,
+        eventIdStart,
+        eventIdEnd
+    );
+    if (limit !== undefined) {
+        query = query.limit(limit);
+    }
+    if (offset !== undefined) {
+        query = query.offset(offset);
+    }
+    const queryResults = await query.selectAll().orderBy('id', 'asc').execute();
+    return queryResults.map((result) => {
+        return {
+            ...result,
+            totalOrderId: result.id,
+        };
+    });
 }
 
 export async function findUserEventsGreaterThanUserEventId(

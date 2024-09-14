@@ -5,34 +5,24 @@ import {
 } from './exceptions';
 import { FetchUpstream } from './buildFetchUpstream';
 import { notifySubscribers } from './notifySubscribers';
-import {
-    getUpstreamControlForUpdate,
-    insertIntoIgnoreUpstreamControl,
-} from '../upstreamControlStore';
 import { onEventProcessSingle } from './onEventProcessSingle';
+import { getUpstreamControl } from '../getUpstreamControl';
 
-export async function syncUpstream(fetchUpstream: FetchUpstream) {
-    const upstreamControl = await db
-        .transaction()
-        .setIsolationLevel('serializable')
-        .execute(async (trx) => {
-            const upstreamForUpdateLock =
-                await getUpstreamControlForUpdate(trx, 0); // Prevents duplicate entry keys and insertions in other tables
-            const upstreamControlIgnore = await insertIntoIgnoreUpstreamControl(
-                trx,
-                {
-                    id: 0,
-                    streamId: 0,
-                    totalOrderId: 0,
-                }
-            );
-            const upstreamControl = await getUpstreamControlForUpdate(trx, 0);
-            return upstreamControl;
-        });
-    if (upstreamControl === undefined) {
-        throw new Error('Failed to get upstream control lock');
-    }
-    const events = await fetchUpstream(upstreamControl.streamId);
+export async function syncUpstream(
+    fetchUpstream: FetchUpstream,
+    totalOrderId: number,
+    eventIdStart: number,
+    eventIdEnd?: number,
+    limit?: number,
+    offset?: number
+) {
+    const events = await fetchUpstream(
+        totalOrderId,
+        eventIdStart,
+        eventIdEnd,
+        limit,
+        offset
+    );
     console.log({ events: events });
     for (const event of events) {
         console.log('...next interation!');
@@ -50,7 +40,6 @@ export async function syncUpstream(fetchUpstream: FetchUpstream) {
             }
             if (e instanceof StreamEventOutOfSequenceException) {
                 console.log('Out of sequence event ID on 2nd pass', {
-                    upstreamControl,
                     event: event,
                 });
                 continue;
@@ -58,4 +47,15 @@ export async function syncUpstream(fetchUpstream: FetchUpstream) {
             throw e;
         }
     }
+}
+
+export async function syncUpstreamFromUpstreamControl(
+    fetchUpstream: FetchUpstream
+) {
+    const upstreamControl = await getUpstreamControl();
+    syncUpstream(
+        fetchUpstream,
+        upstreamControl.totalOrderId,
+        upstreamControl.streamId
+    );
 }
