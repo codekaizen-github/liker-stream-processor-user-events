@@ -62,12 +62,7 @@ export async function findTotallyOrderedStreamEvents(
         }
     }
     const queryResults = await query.selectAll().orderBy('id', 'asc').execute();
-    return queryResults.map((result) => {
-        return {
-            ...result,
-            totalOrderId: result.id,
-        };
-    });
+    return queryResults;
 }
 
 export async function findTotallyOrderedStreamEventsGreaterThanStreamId(

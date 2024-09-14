@@ -23,7 +23,7 @@ export async function syncUpstream(
         limit,
         offset
     );
-    console.log({ events: events });
+    console.log({ events: JSON.stringify(events) });
     for (const event of events) {
         console.log('...next interation!');
         try {
