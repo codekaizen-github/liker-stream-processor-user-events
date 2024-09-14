@@ -1,4 +1,3 @@
-import { db } from '../database';
 import {
     StreamEventIdDuplicateException,
     StreamEventOutOfSequenceException,
