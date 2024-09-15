@@ -121,7 +121,7 @@ app.get('/', (req, res) => {
 });
 
 app.post('/streamIn', async (req, res) => {
-    console.log({ jsonReq: JSON.stringify(req) });
+    console.log({ jsonReq: JSON.stringify(req.body) });
     try {
         if (
             process.env
@@ -200,14 +200,24 @@ app.get('/streamOut', async (req, res) => {
                 return res.status(404).send();
             }
             // Get the events for the user
-            const records = await findTotallyOrderedUserStreamEvents(
-                trx,
+            const records = await findTotallyOrderedUserStreamEvents(trx, {
+                userId: user.id,
                 eventIdStart,
                 eventIdEnd,
                 limit,
-                offset
+                offset,
+            });
+            // Instead of sending the userEvent.id as the id property, send the userEvent.userEventId
+            // This is because to each client, the ids should appear as if they are unique to that client
+            return res.json(
+                records.map((record) => {
+                    return {
+                        id: record.userEventId,
+                        totalOrderId: record.totalOrderId,
+                        data: record.data,
+                    };
+                })
             );
-            return res.json(records);
         });
 });
 

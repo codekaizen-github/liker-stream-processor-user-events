@@ -1,12 +1,9 @@
-import {
-    TotallyOrderedStreamEvent,
-    TotallyOrderedUserStreamEvent,
-} from './transmissionControl/types';
+import { TotallyOrderedStreamEvent } from './transmissionControl/types';
 import { db } from './database';
 import { clientsByEmail } from './server';
 import ws from 'ws';
 import { findUserByEmail, findUsers } from './userStore';
-import { findUserEvents } from './userEventStore';
+import { findTotallyOrderedUserStreamEvents } from './userEventStore';
 
 export async function handleNotifyingSubscribers(
     streamOut: TotallyOrderedStreamEvent
@@ -26,14 +23,26 @@ export async function handleNotifyingSubscribers(
                         continue;
                     }
                     // Get userEvents where totalOrderId = streamOut.totalOrderId
-                    const userEvents = await findUserEvents(trx, {
-                        totalOrderId: streamOut.totalOrderId,
-                    });
+                    const userEvents = await findTotallyOrderedUserStreamEvents(
+                        trx,
+                        {
+                            totalOrderId: streamOut.totalOrderId,
+                            userId: user.id,
+                        }
+                    );
                     if (userEvents === undefined) {
                         continue;
                     }
                     for (const userEvent of userEvents) {
-                        client.send(JSON.stringify(userEvent));
+                        // Instead of sending the userEvent.id as the id property, send the userEvent.userEventId
+                        // This is because to each client, the ids should appear as if they are unique to that client
+                        client.send(
+                            JSON.stringify({
+                                id: userEvent.userEventId,
+                                totalOrderId: userEvent.totalOrderId,
+                                data: userEvent.data,
+                            })
+                        );
                     }
                 }
             }

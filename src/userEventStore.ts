@@ -6,6 +6,7 @@ import {
     Database,
     User,
 } from './types';
+import { findUserByEmail } from './userStore';
 
 export async function findUserEventById(
     trx: Transaction<Database>,
@@ -56,23 +57,39 @@ export function getTotallyOrderedUserStreamEventQueryBuilder(
 
 export async function findTotallyOrderedUserStreamEvents(
     trx: Transaction<Database>,
-    eventIdStart?: number,
-    eventIdEnd?: number,
-    limit?: number,
-    offset?: number
+    criteria: {
+        userId?: number;
+        totalOrderId?: number;
+        eventIdStart?: number;
+        eventIdEnd?: number;
+        limit?: number;
+        offset?: number;
+    }
 ): Promise<UserEvent[]> {
+    const { userId, totalOrderId, eventIdStart, eventIdEnd, limit, offset } =
+        criteria;
     let query = getTotallyOrderedUserStreamEventQueryBuilder(
         trx,
         eventIdStart,
         eventIdEnd
     );
+    if (userId !== undefined) {
+        query = query.where('userId', '=', userId);
+    }
+    if (totalOrderId !== undefined) {
+        query = query.where('totalOrderId', '=', totalOrderId);
+    }
     if (limit !== undefined) {
         query = query.limit(limit);
         if (offset !== undefined) {
             query = query.offset(offset);
         }
     }
-    const queryResults = await query.selectAll().orderBy('id', 'asc').execute();
+    const queryResults = await query
+        .selectAll()
+        .orderBy('id', 'asc')
+        .orderBy('userEventId', 'asc')
+        .execute();
     return queryResults;
 }
 
