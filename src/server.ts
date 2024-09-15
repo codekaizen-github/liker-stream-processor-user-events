@@ -202,8 +202,8 @@ app.get('/streamOut', async (req, res) => {
             // Get the events for the user
             const records = await findTotallyOrderedUserStreamEvents(trx, {
                 userId: user.id,
-                eventIdStart,
-                eventIdEnd,
+                userEventIdStart: eventIdStart,
+                userEventIdEnd: eventIdEnd,
                 limit,
                 offset,
             });

@@ -42,15 +42,15 @@ export async function findUserEvents(
 
 export function getTotallyOrderedUserStreamEventQueryBuilder(
     trx: Transaction<Database>,
-    eventIdStart?: number,
-    eventIdEnd?: number
+    userEventIdStart?: number,
+    userEventIdEnd?: number
 ): SelectQueryBuilder<Database, 'userEvent', {}> {
     let query = trx.selectFrom('userEvent');
-    if (eventIdStart !== undefined) {
-        query.where('id', '>=', eventIdStart);
+    if (userEventIdStart !== undefined) {
+        query = query.where('userEventId', '>=', userEventIdStart);
     }
-    if (eventIdEnd !== undefined) {
-        query = query.where('id', '<=', eventIdEnd); // Kysely is immutable, you must re-assign!
+    if (userEventIdEnd !== undefined) {
+        query = query.where('userEventId', '<=', userEventIdEnd); // Kysely is immutable, you must re-assign!
     }
     return query;
 }
@@ -60,14 +60,20 @@ export async function findTotallyOrderedUserStreamEvents(
     criteria: {
         userId?: number;
         totalOrderId?: number;
-        eventIdStart?: number;
-        eventIdEnd?: number;
+        userEventIdStart?: number;
+        userEventIdEnd?: number;
         limit?: number;
         offset?: number;
     }
 ): Promise<UserEvent[]> {
-    const { userId, totalOrderId, eventIdStart, eventIdEnd, limit, offset } =
-        criteria;
+    const {
+        userId,
+        totalOrderId,
+        userEventIdStart: eventIdStart,
+        userEventIdEnd: eventIdEnd,
+        limit,
+        offset,
+    } = criteria;
     let query = getTotallyOrderedUserStreamEventQueryBuilder(
         trx,
         eventIdStart,
