@@ -14,6 +14,7 @@ import { notifySubscribers } from './transmissionControl/notifySubscribers';
 import { getUpstreamControl } from './getUpstreamControl';
 import { StreamEventOutOfSequenceException } from './transmissionControl/exceptions';
 import { TotallyOrderedStreamEvent } from './transmissionControl/types';
+import { getMaterializedViewForUser } from './getMaterializedViewForUser';
 
 if (
     undefined ==
@@ -206,10 +207,16 @@ app.get('/streamOut', async (req, res) => {
             //     trx,
             //     user.id
             // );
-            const materializedView = { data: '{}' };
+            const materializedView = await getMaterializedViewForUser(
+                trx,
+                user.id
+            );
+            if (undefined === materializedView) {
+                return res.status(404).send();
+            }
             return res.json({
                 totalOrderId: upstreamControl?.totalOrderId ?? 0,
-                materializedView: JSON.parse(materializedView?.data ?? '{}'),
+                materializedView: materializedView,
             });
         });
     // Find all log records with an ID greater than 'afterId'

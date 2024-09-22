@@ -9,6 +9,14 @@ export async function findGameById(trx: Transaction<Database>, id: number) {
         .executeTakeFirst();
 }
 
+export async function findGameByGameId(trx: Transaction<Database>, gameId: number) {
+    return await trx
+        .selectFrom('game')
+        .where('gameId', '=', gameId)
+        .selectAll()
+        .executeTakeFirst();
+}
+
 export async function findGameForUpdateByGameId(
     trx: Transaction<Database>,
     gameId: number
