@@ -7,16 +7,23 @@ import { findUserByEmail } from './userStore';
 import { User } from './types';
 export const clientsByEmail = new Map<string, ws[]>();
 import cors from 'cors';
-import { findTotallyOrderedUserStreamEvents } from './userEventStore';
+import onEvent from './transmissionControl/onEvent';
 import { buildFetchUpstream } from './transmissionControl/buildFetchUpstream';
 import { subscribe } from './subscribe';
-import {
-    syncUpstream,
-    syncUpstreamFromUpstreamControl,
-} from './transmissionControl/syncUpstream';
-import onEvent from './transmissionControl/onEvent';
+import { notifySubscribers } from './transmissionControl/notifySubscribers';
 import { getUpstreamControl } from './getUpstreamControl';
+import { StreamEventOutOfSequenceException } from './transmissionControl/exceptions';
+import { TotallyOrderedStreamEvent } from './transmissionControl/types';
 
+if (
+    undefined ==
+    process.env.LIKER_STREAM_PROCESSOR_USER_EVENTS_UPSTREAM_URL_STREAM_OUT
+) {
+    throw new Error('Undefined upstream URL');
+}
+const fetchUpstreamFunc = buildFetchUpstream(
+    process.env.LIKER_STREAM_PROCESSOR_USER_EVENTS_UPSTREAM_URL_STREAM_OUT
+);
 // Create a WebSocket server
 const wsPort = 8080;
 const server = createServer();
@@ -105,6 +112,7 @@ server.listen(wsPort, () => {
 });
 // Create an Express application
 const port = 80;
+// Create an Express application
 const app = express();
 
 app.use(
@@ -121,31 +129,35 @@ app.get('/', (req, res) => {
 });
 
 app.post('/streamIn', async (req, res) => {
-    console.log({ jsonReq: JSON.stringify(req.body) });
+    if (!Array.isArray(req.body.events)) {
+        return res.status(400).send();
+    }
+    if (isNaN(Number(req.body.totalOrderId))) {
+        return res.status(400).send();
+    }
+    const totalOrderId: number = req.body.totalOrderId;
+    const events: TotallyOrderedStreamEvent[] = req.body.events;
     try {
-        if (
-            process.env
-                .LIKER_STREAM_PROCESSOR_USER_EVENTS_UPSTREAM_URL_STREAM_OUT ===
-            undefined
-        ) {
-            throw new Error('Upstream URL is not defined');
-        }
-        await onEvent(
-            req.body,
-            buildFetchUpstream(
-                process.env
-                    .LIKER_STREAM_PROCESSOR_USER_EVENTS_UPSTREAM_URL_STREAM_OUT
-            )
-        );
+        await onEvent(events, totalOrderId);
     } catch (e) {
-        console.error(e);
+        if (e instanceof StreamEventOutOfSequenceException) {
+            try {
+                const upstreamControl = await getUpstreamControl();
+                const responseBody = await fetchUpstreamFunc(
+                    totalOrderId,
+                    upstreamControl?.streamId ?? 0
+                );
+                await onEvent(responseBody.events, responseBody.totalOrderId);
+            } catch (e) {
+                return res.status(500).send();
+            }
+        }
         return res.status(500).send();
     }
     return res.status(201).send();
 });
 
 app.get('/streamOut', async (req, res) => {
-    console.log({ query: JSON.stringify(req.query) });
     // Get the user email from the query parameters
     const email = req.query.email;
     if (email === undefined) {
@@ -167,29 +179,19 @@ app.get('/streamOut', async (req, res) => {
     let offset = !isNaN(Number(req.query.offset))
         ? Number(req.query.offset)
         : undefined;
-    // Get the upstreamControl lock
+    // Get the upstreamControl
     const upstreamControl = await getUpstreamControl();
     // Make sure that our replica is up to date
     if (
         totalOrderId !== undefined &&
-        upstreamControl.totalOrderId < totalOrderId
+        (upstreamControl?.totalOrderId ?? 0) < totalOrderId
     ) {
-        if (
-            process.env
-                .LIKER_STREAM_PROCESSOR_TRUTH_SAYER_UPSTREAM_URL_STREAM_OUT ===
-            undefined
-        ) {
-            throw new Error('Upstream URL is not defined');
-        }
-        await syncUpstream(
-            buildFetchUpstream(
-                process.env
-                    .LIKER_STREAM_PROCESSOR_TRUTH_SAYER_UPSTREAM_URL_STREAM_OUT
-            ),
+        const responseBody = await fetchUpstreamFunc(
             totalOrderId,
-            upstreamControl.streamId
-            // eventIdEnd // We can't stop here because the eventIdEnd passed in params is not the same eventIdEnd in the upstream
+            upstreamControl?.streamId ?? 0
         );
+        totalOrderId = responseBody.totalOrderId;
+        await onEvent(responseBody.events, responseBody.totalOrderId);
     }
     await db
         .transaction()
@@ -199,26 +201,19 @@ app.get('/streamOut', async (req, res) => {
             if (user === undefined) {
                 return res.status(404).send();
             }
-            // Get the events for the user
-            const records = await findTotallyOrderedUserStreamEvents(trx, {
-                userId: user.id,
-                userEventIdStart: eventIdStart,
-                userEventIdEnd: eventIdEnd,
-                limit,
-                offset,
+            // Get our materialized view
+            // const materializedView = await findUserMaterializedViewByUserId(
+            //     trx,
+            //     user.id
+            // );
+            const materializedView = { data: '{}' };
+            return res.json({
+                totalOrderId: upstreamControl?.totalOrderId ?? 0,
+                materializedView: JSON.parse(materializedView?.data ?? '{}'),
             });
-            // Instead of sending the userEvent.id as the id property, send the userEvent.userEventId
-            // This is because to each client, the ids should appear as if they are unique to that client
-            return res.json(
-                records.map((record) => {
-                    return {
-                        id: record.userEventId,
-                        totalOrderId: record.totalOrderId,
-                        data: record.data,
-                    };
-                })
-            );
         });
+    // Find all log records with an ID greater than 'afterId'
+    // Send the records to the client
 });
 
 // Start the server and listen on the specified port
@@ -251,30 +246,19 @@ app.listen(port, () => {
 // Poll for the latest log records
 (async () => {
     try {
-        if (
-            process.env
-                .LIKER_STREAM_PROCESSOR_USER_EVENTS_UPSTREAM_URL_STREAM_OUT ===
-            undefined
-        ) {
-            return;
-        }
-        const fetchUpstream = buildFetchUpstream(
-            process.env
-                .LIKER_STREAM_PROCESSOR_USER_EVENTS_UPSTREAM_URL_STREAM_OUT
+        const upstreamControl = await getUpstreamControl();
+        const responseBody = await fetchUpstreamFunc(
+            upstreamControl?.totalOrderId ?? 0,
+            upstreamControl?.streamId ?? 0
         );
-        await syncUpstreamFromUpstreamControl(fetchUpstream);
+        await onEvent(responseBody.events, responseBody.totalOrderId);
     } catch (e) {
         console.error(e);
     }
 })();
 
 // Get the most recent log record and notify subscribers
-// TODO Fix so that we push most recent events for each unique websocket/client
-// (async () => {
-//     const result = await getMostRecentTotallyOrderedStreamEvent();
-//     if (result === undefined) {
-//         return;
-//     }
-//     // non-blocking
-//     notifySubscribers(result);
-// })();
+(async () => {
+    // non-blocking
+    notifySubscribers();
+})();

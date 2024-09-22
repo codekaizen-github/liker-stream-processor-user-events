@@ -9,39 +9,14 @@ export interface OrderedStreamEvent {
     data: any;
 }
 
-// export interface NewUserStreamEvent {
-//     userId: number;
-//     userEventId: number;
-//     data: any;
-// }
-
-// export interface OrderedUserStreamEvent {
-//     id: number;
-//     userId: number;
-//     userEventId: number;
-//     data: any;
-// }
-
 export interface Database {
     upstreamControl: UpstreamControlTable;
     user: UserTable;
-    userEvent: UserEventTable;
-    streamOut: StreamOutTable;
+    userFencingToken: UserFencingTokenTable;
+    userMaterializedView: UserMaterializedViewTable;
+    game: GameTable;
+    gameUser: GameUserTable;
 }
-
-export interface StreamOutTable {
-    id: Generated<number>;
-    totalOrderId: number;
-    data: any;
-}
-
-export interface StreamOutTableSerialized extends StreamOutTable {
-    data: string;
-}
-
-export type StreamOut = Selectable<StreamOutTable>;
-export type NewStreamOut = Insertable<StreamOutTableSerialized>;
-export type StreamOutUpdate = Updateable<StreamOutTableSerialized>;
 
 export interface UpstreamControlTable {
     id: number; // Will always be 0
@@ -62,18 +37,46 @@ export type User = Selectable<UserTable>;
 export type NewUser = Insertable<UserTable>;
 export type UserUpdate = Updateable<UserTable>;
 
-export interface UserEventTable {
+export interface UserFencingTokenTable {
     id: Generated<number>;
     totalOrderId: number;
     userId: number;
-    userEventId: number;
+    fencingToken: number;
+}
+
+export type UserFencingToken = Selectable<UserFencingTokenTable>;
+export type NewUserFencingToken = Insertable<UserFencingTokenTable>;
+export type UserFencingTokenUpdate = Updateable<UserFencingTokenTable>;
+
+export interface UserMaterializedViewTable {
+    id: Generated<number>;
+    userId: number;
     data: any;
 }
 
-export interface UserEventTableSerialized extends UserEventTable {
-    data: string;
+export type UserMaterializedView = Selectable<UserMaterializedViewTable>;
+export type NewUserMaterializedView = Insertable<UserMaterializedViewTable>;
+export type UserMaterializedViewUpdate = Updateable<UserMaterializedViewTable>;
+
+export interface GameTable {
+    id: Generated<number>;
+    gameId: number;
+    likeCount: number;
+    status: number;
 }
 
-export type UserEvent = Selectable<UserEventTable>;
-export type NewUserEvent = Insertable<UserEventTableSerialized>;
-export type UserEventUpdate = Updateable<UserEventTableSerialized>;
+export type Game = Selectable<GameTable>;
+export type NewGame = Insertable<GameTable>;
+export type GameUpdate = Updateable<GameTable>;
+
+export interface GameUserTable {
+    id: Generated<number>;
+    gameId: number;
+    userId: number;
+    successfulLikes: number;
+    failedLikes: number;
+}
+
+export type GameUser = Selectable<GameUserTable>;
+export type NewGameUser = Insertable<GameUserTable>;
+export type GameUserUpdate = Updateable<GameUserTable>;

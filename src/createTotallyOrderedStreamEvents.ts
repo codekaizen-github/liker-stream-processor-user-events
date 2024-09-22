@@ -1,140 +1,165 @@
 import { Transaction } from 'kysely';
-import { Database, UserEvent } from './types';
+import { Database } from './types';
 import {
     NewTotallyOrderedStreamEvent,
     TotallyOrderedStreamEvent,
 } from './transmissionControl/types';
 import { createUser, findUserByEmail, findUsers } from './userStore';
 import {
-    createStreamOutFromStreamEvent,
-    findTotallyOrderedStreamEvents,
-} from './streamOutStore';
-import { UserNotFoundException } from './exceptions';
+    createGame,
+    findGameById,
+    findGameForUpdateByGameId,
+    updateGame,
+} from './gameStore';
 import {
-    createUserEvent,
-    getMostRecentUserEventByUserId,
-} from './userEventStore';
+    getGameUserForUpdate,
+    insertIntoIgnoreGameUser,
+    updateGameUser,
+} from './gameUserStore';
 
 export async function createTotallyOrderedStreamEvents(
     trx: Transaction<Database>,
     streamEvent: NewTotallyOrderedStreamEvent
-): Promise<TotallyOrderedStreamEvent[]> {
-    console.log('createTotallyOrderedStreamEvents', { streamEvent });
-    const results: TotallyOrderedStreamEvent[] = [];
-    const userEmail = streamEvent.data?.payload?.user?.email;
-    if (streamEvent.data.type === 'create-new-user-succeeded') {
-        const existingUser = await findUserByEmail(trx, userEmail);
-        if (existingUser === undefined) {
-            const newUser = await createUser(trx, {
-                email: userEmail,
-            });
-            if (newUser === undefined) {
-                throw new Error('Failed to create user');
-            }
-            // Get all prior events that were chucked into streamOut and reprocess for this user
-            const priorStreamEvents = await findTotallyOrderedStreamEvents(trx);
-            for (const priorStreamEvent of priorStreamEvents) {
-                switch (priorStreamEvent.data.type) {
-                    default: {
-                        const userEmail =
-                            priorStreamEvent.data?.payload?.user?.email;
-                        // By default, if a user was passed, only notify that user
-                        if (
-                            userEmail === undefined ||
-                            userEmail === newUser.email
-                        ) {
-                            console.log('notifying user after creating', {
-                                newUser,
-                            });
-                            // Notify user
-                            const userStreamEvent =
-                                await writeToUserStreamEventsByEmail(
-                                    trx,
-                                    newUser.email,
-                                    priorStreamEvent
-                                );
-                        }
-                    }
+): Promise<number[]> {
+    const results: number[] = [];
+    switch (streamEvent.data.type) {
+        case 'create-new-user-succeeded': {
+            const userEmail = streamEvent.data?.payload?.user?.email;
+            const existingUser = await findUserByEmail(trx, userEmail);
+            if (existingUser === undefined) {
+                const newUser = await createUser(trx, {
+                    email: userEmail,
+                });
+                if (newUser === undefined) {
+                    throw new Error('Failed to create user');
                 }
+                results.push(newUser.id);
+            } else {
+                results.push(existingUser.id);
             }
+            break;
         }
-    }
-    // This is the only one we will return
-    console.log('before createStreamOutFromStreamEvent');
-    const streamOut = await createStreamOutFromStreamEvent(trx, streamEvent);
-
-    console.log('after createStreamOutFromStreamEvent');
-
-    if (streamOut === undefined) {
-        throw new Error('Failed to create stream in');
-    }
-    results.push(streamOut);
-    if (userEmail !== undefined) {
-        console.log('notifying user because event is specific to them', {
-            userEmail,
-        });
-        // Notify user
-        try {
-            const userEvent = await writeToUserStreamEventsByEmail(
-                trx,
-                userEmail,
-                streamOut
-            );
-        } catch (e) {
-            if (e instanceof UserNotFoundException) {
-                console.error('User not found: ', { userEmail });
-                return results;
+        case 'game-started-succeeded': {
+            const eventGame = streamEvent.data?.payload?.game;
+            await createGame(trx, {
+                gameId: eventGame.id,
+                likeCount: eventGame.likeCount,
+                status: 0,
+            });
+            const users = await findUsers(trx, {});
+            results.push(...users.map((user) => user.id));
+            break;
+        }
+        case 'game-updated': {
+            const eventGame = streamEvent.data?.payload?.game;
+            // Find the game by the game ID
+            const game = await findGameForUpdateByGameId(trx, eventGame.id);
+            if (game === undefined) {
+                throw new Error('Game not found');
             }
-            throw e;
+            await updateGame(trx, game.id, {
+                likeCount: game.likeCount,
+            });
+            const users = await findUsers(trx, {});
+            results.push(...users.map((user) => user.id));
+            break;
         }
-        return results;
-    }
-    // Else notify all user streams
-    const users = await findUsers(trx, {});
-    for (const user of users) {
-        console.log('notifying user because all users', { user });
-        try {
-        } catch (e) {
-            if (e instanceof UserNotFoundException) {
-                console.error('User not found: ', { userEmail });
-                continue;
+        case 'game-completed': {
+            const eventGame = streamEvent.data?.payload?.game;
+            // Find the game by the game ID
+            const game = await findGameForUpdateByGameId(trx, eventGame.id);
+            if (game === undefined) {
+                throw new Error('Game not found');
             }
-            throw e;
+            await updateGame(trx, game.id, {
+                likeCount: game.likeCount,
+                status: 1,
+            });
+            const users = await findUsers(trx, {});
+            results.push(...users.map((user) => user.id));
+            break;
         }
-        const userEvent = await writeToUserStreamEventsByEmail(
-            trx,
-            user.email,
-            streamOut
-        );
+        case 'like-succeeded': {
+            const eventGame = streamEvent.data?.payload?.game;
+            // Find the game by the game ID
+            const eventUser = streamEvent.data?.payload?.user;
+            // Find the game by ID to ensure it exists
+            const game = await findGameById(trx, eventGame.id);
+            if (game === undefined) {
+                throw new Error('Game not found');
+            }
+            // Find the user by Email to ensure they exist
+            const user = await findUserByEmail(trx, eventUser.email);
+            if (user === undefined) {
+                throw new Error('User not found');
+            }
+            await getGameUserForUpdate(trx, {
+                gameId: game.id,
+                userId: user.id,
+            });
+            // Insert ignore
+            await insertIntoIgnoreGameUser(trx, {
+                gameId: game.id,
+                userId: user.id,
+                successfulLikes: 0,
+                failedLikes: 0,
+            });
+            const gameUser = await getGameUserForUpdate(trx, {
+                gameId: game.id,
+                userId: user.id,
+            });
+            if (gameUser === undefined) {
+                throw new Error('GameUser not found');
+            }
+            // Update the game user with the new like count
+            await updateGameUser(trx, gameUser.id, {
+                successfulLikes: gameUser.successfulLikes + 1,
+            });
+            results.push(user.id);
+            break;
+        }
+        case 'like-failed': {
+            const eventGame = streamEvent.data?.payload?.game;
+            // Find the game by the game ID
+            const eventUser = streamEvent.data?.payload?.user;
+            // Find the game by ID to ensure it exists
+            const game = await findGameById(trx, eventGame.id);
+            if (game === undefined) {
+                throw new Error('Game not found');
+            }
+            // Find the user by Email to ensure they exist
+            const user = await findUserByEmail(trx, eventUser.email);
+            if (user === undefined) {
+                throw new Error('User not found');
+            }
+            await getGameUserForUpdate(trx, {
+                gameId: game.id,
+                userId: user.id,
+            });
+            // Insert ignore
+            await insertIntoIgnoreGameUser(trx, {
+                gameId: game.id,
+                userId: user.id,
+                successfulLikes: 0,
+                failedLikes: 0,
+            });
+            const gameUser = await getGameUserForUpdate(trx, {
+                gameId: game.id,
+                userId: user.id,
+            });
+            if (gameUser === undefined) {
+                throw new Error('GameUser not found');
+            }
+            // Update the game user with the new like count
+            await updateGameUser(trx, gameUser.id, {
+                failedLikes: gameUser.failedLikes + 1,
+            });
+            results.push(user.id);
+            break;
+        }
+        default: {
+            break;
+        }
     }
     return results;
-}
-
-export async function writeToUserStreamEventsByEmail(
-    trx: Transaction<Database>,
-    userEmail: string,
-    totallyOrderedStreamEvent: TotallyOrderedStreamEvent
-): Promise<UserEvent> {
-    const existingUser = await findUserByEmail(trx, userEmail);
-    if (undefined === existingUser) {
-        // If user doesn't exist, ignore it
-        throw new UserNotFoundException();
-    }
-    const mostRecentUserEventByUserId = await getMostRecentUserEventByUserId(
-        trx,
-        existingUser.id
-    );
-    const mostRecentUserEventUserEventId = mostRecentUserEventByUserId
-        ? mostRecentUserEventByUserId.userEventId
-        : 0;
-    const newUserEvent = await createUserEvent(trx, {
-        totalOrderId: totallyOrderedStreamEvent.totalOrderId,
-        userId: existingUser.id,
-        userEventId: mostRecentUserEventUserEventId + 1,
-        data: totallyOrderedStreamEvent.data,
-    });
-    if (newUserEvent === undefined) {
-        throw new Error('Failed to create user event');
-    }
-    return newUserEvent;
 }
