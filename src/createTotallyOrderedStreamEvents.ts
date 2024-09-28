@@ -1,5 +1,5 @@
 import { Transaction } from 'kysely';
-import { Database } from './types';
+import { Database, User } from './types';
 import {
     NewTotallyOrderedStreamEvent,
     TotallyOrderedStreamEvent,
@@ -11,12 +11,18 @@ import {
     findGameForUpdateByGameId,
     updateGame,
     findGameByGameId,
+    findGames,
+    updateGamesStatuses,
 } from './gameStore';
 import {
     getGameUserForUpdate,
     insertIntoIgnoreGameUser,
     updateGameUser,
 } from './gameUserStore';
+import {
+    createUserFencingToken,
+    findUserFencingTokens,
+} from './userFencingTokenStore';
 
 export async function createTotallyOrderedStreamEvents(
     trx: Transaction<Database>,
@@ -27,148 +33,155 @@ export async function createTotallyOrderedStreamEvents(
         payload: JSON.stringify(streamEvent.data.payload),
     });
     const results: number[] = [];
-    try {
-        switch (streamEvent.data.type) {
-            case 'create-new-user-succeeded': {
-                const userEmail = streamEvent.data?.payload?.user?.email;
-                const existingUser = await findUserByEmail(trx, userEmail);
-                if (existingUser === undefined) {
-                    const newUser = await createUser(trx, {
-                        email: userEmail,
-                    });
-                    if (newUser === undefined) {
-                        throw new Error('Failed to create user');
-                    }
-                    results.push(newUser.id);
-                } else {
-                    results.push(existingUser.id);
-                }
-                break;
-            }
-            case 'game-started-succeeded': {
-                const eventGame = streamEvent.data?.payload?.game;
-                await createGame(trx, {
-                    gameId: eventGame.id,
-                    likeCount: eventGame.likeCount,
-                    status: 0,
-                });
-                const users = await findUsers(trx, {});
-                results.push(...users.map((user) => user.id));
-                break;
-            }
-            case 'game-updated': {
-                const eventGame = streamEvent.data?.payload?.game;
-                // Find the game by the game ID
-                const game = await findGameForUpdateByGameId(trx, eventGame.id);
-                if (game === undefined) {
-                    throw new Error('Game not found');
-                }
-                await updateGame(trx, game.id, {
-                    likeCount: game.likeCount,
-                });
-                const users = await findUsers(trx, {});
-                results.push(...users.map((user) => user.id));
-                break;
-            }
-            case 'game-completed': {
-                const eventGame = streamEvent.data?.payload?.game;
-                // Find the game by the game ID
-                const game = await findGameForUpdateByGameId(trx, eventGame.id);
-                if (game === undefined) {
-                    throw new Error('Game not found');
-                }
-                await updateGame(trx, game.id, {
-                    likeCount: game.likeCount,
-                    status: 1,
-                });
-                const users = await findUsers(trx, {});
-                results.push(...users.map((user) => user.id));
-                break;
-            }
-            case 'like-succeeded': {
-                const eventGame = streamEvent.data?.payload?.game;
-                // Find the game by the game ID
-                const eventUser = streamEvent.data?.payload?.user;
-                // Find the game by ID to ensure it exists
-                const game = await findGameByGameId(trx, eventGame.id);
-                if (game === undefined) {
-                    throw new Error('Game not found');
-                }
-                // Find the user by Email to ensure they exist
-                const user = await findUserByEmail(trx, eventUser.email);
-                if (user === undefined) {
-                    throw new Error('User not found');
-                }
-                await getGameUserForUpdate(trx, {
-                    gameId: game.id,
-                    userId: user.id,
-                });
-                // Insert ignore
-                await insertIntoIgnoreGameUser(trx, {
-                    gameId: game.id,
-                    userId: user.id,
-                    successfulLikes: 0,
-                    failedLikes: 0,
-                });
-                const gameUser = await getGameUserForUpdate(trx, {
-                    gameId: game.id,
-                    userId: user.id,
-                });
-                if (gameUser === undefined) {
-                    throw new Error('GameUser not found');
-                }
-                // Update the game user with the new like count
-                await updateGameUser(trx, gameUser.id, {
-                    successfulLikes: gameUser.successfulLikes + 1,
-                });
-                results.push(user.id);
-                break;
-            }
-            case 'like-failed': {
-                const eventGame = streamEvent.data?.payload?.game;
-                // Find the game by the game ID
-                const eventUser = streamEvent.data?.payload?.user;
-                // Find the game by ID to ensure it exists
-                const game = await findGameByGameId(trx, eventGame.id);
-                if (game === undefined) {
-                    throw new Error('Game not found');
-                }
-                // Find the user by Email to ensure they exist
-                const user = await findUserByEmail(trx, eventUser.email);
-                if (user === undefined) {
-                    throw new Error('User not found');
-                }
-                await getGameUserForUpdate(trx, {
-                    gameId: game.id,
-                    userId: user.id,
-                });
-                // Insert ignore
-                await insertIntoIgnoreGameUser(trx, {
-                    gameId: game.id,
-                    userId: user.id,
-                    successfulLikes: 0,
-                    failedLikes: 0,
-                });
-                const gameUser = await getGameUserForUpdate(trx, {
-                    gameId: game.id,
-                    userId: user.id,
-                });
-                if (gameUser === undefined) {
-                    throw new Error('GameUser not found');
-                }
-                // Update the game user with the new like count
-                await updateGameUser(trx, gameUser.id, {
-                    failedLikes: gameUser.failedLikes + 1,
-                });
-                results.push(user.id);
-                break;
-            }
-            default: {
-                break;
-            }
-        }
-    } catch (e) {
-        console.error({ e });
+    const userEmail = streamEvent.data?.payload?.user?.email;
+    let user = await findUserByEmail(trx, userEmail);
+    const fencingTokenInput = streamEvent.data?.payload?.fencingToken;
+    const fencingTokens = await findUserFencingTokens(trx, {
+        fencingToken: fencingTokenInput,
+    });
+    if (fencingTokenInput !== undefined && fencingTokens.length !== 0) {
+        // Fencing token already used, do nothing
+        return results;
     }
+    if (streamEvent.data.type === 'create-new-user-succeeded') {
+        if (user === undefined) {
+            user = await createUser(trx, {
+                email: userEmail,
+            });
+            if (user === undefined) {
+                throw new Error('Failed to create user');
+            }
+            results.push(user.id);
+        }
+    }
+    switch (streamEvent.data.type) {
+        case 'game-started-succeeded': {
+            const eventGame = streamEvent.data?.payload?.game;
+            await updateGamesStatuses(trx, 0, 1);
+            await createGame(trx, {
+                gameId: eventGame.id,
+                likeCount: eventGame.likeCount,
+                status: 0,
+            });
+            const users = await findUsers(trx, {});
+            results.push(...users.map((user) => user.id));
+            break;
+        }
+        case 'game-updated': {
+            const eventGame = streamEvent.data?.payload?.game;
+            // Find the game by the game ID
+            const game = await findGameForUpdateByGameId(trx, eventGame.id);
+            if (game === undefined) {
+                throw new Error('Game not found');
+            }
+            await updateGame(trx, game.id, {
+                likeCount: game.likeCount,
+            });
+            const users = await findUsers(trx, {});
+            results.push(...users.map((user) => user.id));
+            break;
+        }
+        case 'game-completed': {
+            const eventGame = streamEvent.data?.payload?.game;
+            // Find the game by the game ID
+            const game = await findGameForUpdateByGameId(trx, eventGame.id);
+            if (game === undefined) {
+                throw new Error('Game not found');
+            }
+            await updateGame(trx, game.id, {
+                likeCount: game.likeCount,
+                status: 1,
+            });
+            const users = await findUsers(trx, {});
+            results.push(...users.map((user) => user.id));
+            break;
+        }
+        case 'like-succeeded': {
+            const eventGame = streamEvent.data?.payload?.game;
+            // Find the game by ID to ensure it exists
+            const game = await findGameByGameId(trx, eventGame.id);
+            if (game === undefined) {
+                throw new Error('Game not found');
+            }
+            // Find the user by Email to ensure they exist
+            if (user === undefined) {
+                throw new Error('User not found');
+            }
+            await getGameUserForUpdate(trx, {
+                gameId: game.id,
+                userId: user.id,
+            });
+            // Insert ignore
+            await insertIntoIgnoreGameUser(trx, {
+                gameId: game.id,
+                userId: user.id,
+                successfulLikes: 0,
+                failedLikes: 0,
+            });
+            const gameUser = await getGameUserForUpdate(trx, {
+                gameId: game.id,
+                userId: user.id,
+            });
+            if (gameUser === undefined) {
+                throw new Error('GameUser not found');
+            }
+            // Update the game user with the new like count
+            await updateGameUser(trx, gameUser.id, {
+                successfulLikes: gameUser.successfulLikes + 1,
+            });
+            results.push(user.id);
+            break;
+        }
+        case 'like-failed': {
+            const eventGame = streamEvent.data?.payload?.game;
+            // Find the game by the game ID
+            const eventUser = streamEvent.data?.payload?.user;
+            // Find the game by ID to ensure it exists
+            const game = await findGameByGameId(trx, eventGame.id);
+            if (game === undefined) {
+                throw new Error('Game not found');
+            }
+            // Find the user by Email to ensure they exist
+            user = await findUserByEmail(trx, eventUser.email);
+            if (user === undefined) {
+                throw new Error('User not found');
+            }
+            await getGameUserForUpdate(trx, {
+                gameId: game.id,
+                userId: user.id,
+            });
+            // Insert ignore
+            await insertIntoIgnoreGameUser(trx, {
+                gameId: game.id,
+                userId: user.id,
+                successfulLikes: 0,
+                failedLikes: 0,
+            });
+            const gameUser = await getGameUserForUpdate(trx, {
+                gameId: game.id,
+                userId: user.id,
+            });
+            if (gameUser === undefined) {
+                throw new Error('GameUser not found');
+            }
+            // Update the game user with the new like count
+            await updateGameUser(trx, gameUser.id, {
+                failedLikes: gameUser.failedLikes + 1,
+            });
+            results.push(user.id);
+            break;
+        }
+        default: {
+            break;
+        }
+    }
+    if (fencingTokenInput !== undefined && user !== undefined) {
+        await createUserFencingToken(trx, {
+            userId: user.id,
+            fencingToken: fencingTokenInput,
+            totalOrderId: streamEvent.totalOrderId,
+        });
+    }
+
     return results;
 }

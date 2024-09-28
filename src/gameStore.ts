@@ -71,6 +71,14 @@ export async function updateGame(
         .execute();
 }
 
+export async function updateGamesStatuses(trx: Transaction<Database>, currentStatus: number, newStatus: number) {
+    await trx
+        .updateTable('game')
+        .set({status: newStatus})
+        .where('status', '=', currentStatus)
+        .execute();
+}
+
 export async function createGame(trx: Transaction<Database>, game: NewGame) {
     console.log('Trying to create game', { game });
     const { insertId } = await trx

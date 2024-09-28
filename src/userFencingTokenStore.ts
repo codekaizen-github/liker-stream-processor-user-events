@@ -31,6 +31,14 @@ export async function findUserFencingTokens(
         query = query.where('userId', '=', criteria.userId); // Kysely is immutable, you must re-assign!
     }
 
+    if (criteria.totalOrderId) {
+        query = query.where('totalOrderId', '=', criteria.totalOrderId); // Kysely is immutable, you must re-assign!
+    }
+
+    if (criteria.fencingToken) {
+        query = query.where('fencingToken', '=', criteria.fencingToken); // Kysely is immutable, you must re-assign
+    }
+
     return await query.selectAll().execute();
 }
 
