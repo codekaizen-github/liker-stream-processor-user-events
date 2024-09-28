@@ -129,6 +129,47 @@ app.get('/', (req, res) => {
     res.send('Hello, TypeScript + Node.js + Express!');
 });
 
+app.get('/fencingTokens', async (req, res) => {
+    const email = req.query?.email;
+    if (email === undefined) {
+        return res.status(400).send();
+    }
+    const fencingTokens: number[] =
+        req.query?.fencingTokens === undefined
+            ? []
+            : req.query?.fencingTokens
+                  ?.toString()
+                  .split(',')
+                  .map(Number)
+                  .filter((t) => !isNaN(t));
+    const totalOrderId = !isNaN(Number(req.query.totalOrderId))
+        ? Number(req.query.totalOrderId)
+        : undefined;
+    const results = await db
+        .transaction()
+        .setIsolationLevel('serializable')
+        .execute(async (trx) => {
+            const user = await findUserByEmail(trx, email.toString());
+            if (user === undefined) {
+                return res.status(404).send();
+            }
+            let query = trx
+                .selectFrom('userFencingToken')
+                .where('userId', '=', user.id);
+            if (totalOrderId !== undefined) {
+                query = query.where('totalOrderId', '<=', totalOrderId);
+            }
+            if (fencingTokens.length > 0) {
+                query = query.where('fencingToken', 'in', fencingTokens);
+            }
+            const userFencingTokensUpToTotalOrder = await query
+                .selectAll()
+                .execute();
+            return userFencingTokensUpToTotalOrder;
+        });
+    return res.json(results);
+});
+
 app.post('/streamIn', async (req, res) => {
     if (!Array.isArray(req.body.events)) {
         return res.status(400).send();
