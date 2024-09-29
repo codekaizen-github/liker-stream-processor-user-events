@@ -12,7 +12,12 @@ export async function getMaterializedViewForUser(
     // Get all games
     const games = await trx
         .selectFrom('game')
-        .leftJoin('gameUser', 'game.id', 'gameUser.gameId')
+        .leftJoin('gameUser', (eb) => {
+            return eb
+                .onRef('game.id', '=', 'gameUser.gameId')
+                .on('gameUser.userId', '=', userId);
+        })
+        // .leftJoin('gameUser', 'game.id', 'gameUser.gameId')
         .select([
             'game.gameId as id',
             'game.likeCount',
