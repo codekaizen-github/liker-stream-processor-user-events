@@ -21,8 +21,12 @@ export async function getMaterializedViewForUser(
             'gameUser.successfulLikes',
             'gameUser.failedLikes',
         ])
-        // .where('gameUser.userId', '=', userId)
-        // .selectAll()
+        .where(({ and, or, eb, not, exists, selectFrom }) =>
+            or([
+                eb('gameUser.userId', '=', userId),
+                eb('gameUser.userId', 'is', null),
+            ])
+        )
         // .select((eb) => [
         //     // gameUser
         //     // jsonArrayFrom(
@@ -36,19 +40,17 @@ export async function getMaterializedViewForUser(
         //     //         .where('gameUser.userId', '=', userId)
         //     //         .orderBy('gameUser.id', 'desc')
         //     // ).as('gameUser'),
-        //     jsonObjectFrom(
-        //         eb
-        //             .selectFrom('gameUser')
-        //             .select([
-        //                 'gameUser.successfulLikes',
-        //                 'gameUser.failedLikes',
-        //             ])
-        //             .whereRef('gameUser.gameId', '=', 'game.id')
-        //             .where('gameUser.userId', '=', userId)
-        //             .orderBy('gameUser.id', 'desc')
-        //             .limit(1)
-        //     ).as('gameUser'),
+        //     // jsonObjectFrom(
+        //     eb
+        //         .selectFrom('gameUser')
+        //         .select(['gameUser.successfulLikes', 'gameUser.failedLikes'])
+        //         .whereRef('gameUser.gameId', '=', 'game.id')
+        //         .where('gameUser.userId', '=', userId)
+        //         .orderBy('gameUser.id', 'desc')
+        //         .limit(1),
+        //     // ).as('gameUser'),
         // ])
+        // .select(['game.gameId as id', 'game.likeCount', 'game.status'])
         .stream();
     const gamesArray: {
         likeCount: number;

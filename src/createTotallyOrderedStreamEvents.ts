@@ -22,27 +22,22 @@ import {
 import {
     createUserFencingToken,
     findUserFencingTokens,
+    insertIntoIgnoreUserFencingToken,
 } from './userFencingTokenStore';
 
 export async function createTotallyOrderedStreamEvents(
     trx: Transaction<Database>,
     streamEvent: NewTotallyOrderedStreamEvent
 ): Promise<number[]> {
-    console.log({
-        streamEvent,
-        payload: JSON.stringify(streamEvent.data.payload),
-    });
     const results: number[] = [];
     const userEmail = streamEvent.data?.payload?.user?.email;
     let user = await findUserByEmail(trx, userEmail);
     const fencingTokenInput = streamEvent.data?.payload?.fencingToken;
-    const fencingTokens = await findUserFencingTokens(trx, {
-        fencingToken: fencingTokenInput,
-    });
-    if (fencingTokenInput !== undefined && fencingTokens.length !== 0) {
-        // Fencing token already used, do nothing
-        return results;
-    }
+    // Do NOT have a check on fencingToken uniqueness here because we have upstreams that will create multiple events from a single fencingToken and pass them all down
+    // if (fencingTokenInput !== undefined && fencingTokens.length !== 0) {
+    //     // Fencing token already used, do nothing
+    //     return results;
+    // }
     if (streamEvent.data.type === 'create-new-user-succeeded') {
         if (user === undefined) {
             user = await createUser(trx, {
@@ -75,7 +70,7 @@ export async function createTotallyOrderedStreamEvents(
                 throw new Error('Game not found');
             }
             await updateGame(trx, game.id, {
-                likeCount: game.likeCount,
+                likeCount: eventGame.likeCount,
             });
             const users = await findUsers(trx, {});
             results.push(...users.map((user) => user.id));
@@ -97,15 +92,15 @@ export async function createTotallyOrderedStreamEvents(
             break;
         }
         case 'like-succeeded': {
+            // Find the user by Email to ensure they exist
+            if (user === undefined) {
+                throw new Error('User not found');
+            }
             const eventGame = streamEvent.data?.payload?.game;
             // Find the game by ID to ensure it exists
             const game = await findGameByGameId(trx, eventGame.id);
             if (game === undefined) {
                 throw new Error('Game not found');
-            }
-            // Find the user by Email to ensure they exist
-            if (user === undefined) {
-                throw new Error('User not found');
             }
             await getGameUserForUpdate(trx, {
                 gameId: game.id,
@@ -176,7 +171,7 @@ export async function createTotallyOrderedStreamEvents(
         }
     }
     if (fencingTokenInput !== undefined && user !== undefined) {
-        await createUserFencingToken(trx, {
+        await insertIntoIgnoreUserFencingToken(trx, {
             userId: user.id,
             fencingToken: fencingTokenInput,
             totalOrderId: streamEvent.totalOrderId,
