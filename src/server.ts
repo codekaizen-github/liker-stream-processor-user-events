@@ -255,10 +255,7 @@ app.get('/userView', async (req, res) => {
             if (undefined === materializedView) {
                 return res.status(404).send();
             }
-            return res.json({
-                totalOrderId: upstreamControl?.totalOrderId ?? 0,
-                materializedView: materializedView,
-            });
+            return res.json(materializedView);
         });
     // Find all log records with an ID greater than 'afterId'
     // Send the records to the client

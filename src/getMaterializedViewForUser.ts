@@ -65,8 +65,8 @@ export async function getMaterializedViewForUser(
         });
     }
     return {
+        totalOrderId: upstreamControl?.totalOrderId ?? 0,
         userId,
-        totalOrderId: upstreamControl?.totalOrderId,
         games: gamesArray,
     };
 }
