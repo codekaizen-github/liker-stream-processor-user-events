@@ -129,7 +129,7 @@ app.get('/', (req, res) => {
     res.send('Hello, TypeScript + Node.js + Express!');
 });
 
-app.get('/fencingTokens', async (req, res) => {
+app.get('/userFencingToken', async (req, res) => {
     const email = req.query?.email;
     if (email === undefined) {
         return res.status(400).send();
@@ -199,7 +199,7 @@ app.post('/streamIn', async (req, res) => {
     return res.status(201).send();
 });
 
-app.get('/streamOut', async (req, res) => {
+app.get('/userView', async (req, res) => {
     // Get the user email from the query parameters
     const email = req.query.email;
     if (email === undefined) {
