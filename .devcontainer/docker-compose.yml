@@ -7,8 +7,12 @@ services:
         volumes:
             - ./:/workspace
         networks:
-            - liker_external_network
-            - liker_stream_processor_user_events_internal_network
+            liker_external_network:
+                aliases:
+                    - liker-stream-processor-user-events.liker
+            liker_stream_processor_user_events_internal_network:
+        dns:
+            - 8.8.8.8
     db:
         networks:
             - liker_stream_processor_user_events_internal_network
