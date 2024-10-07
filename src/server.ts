@@ -1,6 +1,7 @@
 // Import the 'express' module
 import express from 'express';
-import { createServer, IncomingMessage } from 'http';
+import expressWs from 'express-ws';
+import { IncomingMessage } from 'http';
 import { db } from './database';
 import ws from 'ws';
 import { findUserByEmail } from './userStore';
@@ -25,41 +26,24 @@ if (
 const fetchUpstreamFunc = buildFetchUpstream(
     process.env.LIKER_STREAM_PROCESSOR_USER_EVENTS_UPSTREAM_URL_STREAM_OUT
 );
-// Create a WebSocket server
-const wsPort = 8080;
-const server = createServer();
-const wss = new ws.WebSocketServer({ noServer: true });
-wss.on('connection', function connection(ws) {
-    ws.on('message', function message(data) {
-        // ws.send(`received: ${data}`);
-    });
-    // ws.send('something');
-});
-function onSocketError(err: Error) {
-    console.error('WebSocket error:', err);
-}
+
+const port = 80;
+const { app, getWss, applyTo } = expressWs(express());
+
+app.use(
+    cors({
+        origin: '*',
+    })
+);
+app.use(express.json());
+
+// https://stackoverflow.com/questions/46531934/express-ws-alternative-in-typescript
+const router = express.Router() as expressWs.Router;
+
 function authenticate(
-    request: IncomingMessage,
+    email: string,
     callback: (err: Error | null, client: User | null) => void
 ) {
-    // console.log(JSON.stringify(request));
-    // Parse the url search params in request.url
-    // Extract the email search param from a URL like /?email=...
-    // console.log({ url: request.url });
-    // Dummy base URL
-    const url = new URL(request.url || '', 'http://localhost');
-    const searchParams = new URLSearchParams(url.search);
-    // console.log({ searchParams });
-    const email = searchParams.get('email');
-    // console.log({ email });
-    if (email === undefined) {
-        callback(new Error('Email header not found'), null);
-        return;
-    }
-    if (typeof email !== 'string') {
-        callback(new Error('Email header is not a string'), null);
-        return;
-    }
     // Check to see if email is in the database
     db.transaction()
         .setIsolationLevel('serializable')
@@ -73,55 +57,57 @@ function authenticate(
             });
         });
 }
-server.on('upgrade', function upgrade(request, socket, head) {
-    console.log('upgrade');
-    socket.on('error', onSocketError);
-    // This function is not defined on purpose. Implement it with your own logic.
-    authenticate(request, function next(err, client) {
-        if (err || !client) {
-            socket.write('HTTP/1.1 401 Unauthorized\r\n\r\n');
-            socket.destroy();
+
+router.ws('/', function (ws, req) {
+    const email = req.query.email;
+    // console.log({ email });
+    if (email === undefined || typeof email !== 'string') {
+        console.log('error authenticating, closing socket');
+        ws.close();
+        return;
+    }
+    authenticate(email, (err, client) => {
+        if (err || null === client) {
+            console.log('error authenticating, closing socket');
+            ws.close();
             return;
         }
-        socket.removeListener('error', onSocketError);
-        wss.handleUpgrade(request, socket, head, function done(ws) {
-            clientsByEmail.set(client.email, [
-                ...(clientsByEmail.get(client.email) || []),
-                ws,
-            ]);
-            ws.on('close', () => {
-                const clients = clientsByEmail.get(client.email);
-                if (clients === undefined) {
-                    return;
-                }
-                clientsByEmail.set(
-                    client.email,
-                    clients.filter((c) => c !== ws)
-                );
-            });
-            wss.emit('connection', ws, request, client);
-            // console.log({
-            //     clientsByEmail: JSON.stringify(
-            //         Array.from(clientsByEmail.entries())
-            //     ),
-            // });
-        });
+        const clients = clientsByEmail.get(client.email);
+        if (clients === undefined) {
+            return;
+        }
+        clientsByEmail.set(client.email, [
+            ...(clientsByEmail.get(client.email) || []),
+            ws,
+        ]);
     });
+    ws.on('upgrade', function (request: IncomingMessage) {
+        console.log('upgrading');
+    });
+    ws.on('open', function (request: IncomingMessage) {
+        console.log('opening');
+    });
+    ws.on('error', function (request: IncomingMessage) {
+        console.log('erroring');
+    });
+    ws.on('close', function (request: IncomingMessage) {
+        console.log('closing');
+        const clients = clientsByEmail.get(email);
+        if (clients === undefined) {
+            return;
+        }
+        clientsByEmail.set(
+            email,
+            clients.filter((c) => c !== ws)
+        );
+    });
+    ws.on('message', function message(data) {
+        ws.send(`received: ${data}`);
+    });
+    console.log('something');
+    ws.send(`something`);
 });
-server.listen(wsPort, () => {
-    console.log(`WebSocket server is running on ws://localhost:${wsPort}`);
-});
-// Create an Express application
-const port = 80;
-// Create an Express application
-const app = express();
-
-app.use(
-    cors({
-        origin: '*',
-    })
-);
-app.use(express.json());
+app.use('/ws', router);
 
 // Define a route for the root path ('/')
 app.get('/', (req, res) => {
@@ -302,7 +288,7 @@ app.listen(port, () => {
     }
 })();
 
-// Get the most recent log record and notify subscribers
+// // Get the most recent log record and notify subscribers
 (async () => {
     // non-blocking
     notifySubscribers();
