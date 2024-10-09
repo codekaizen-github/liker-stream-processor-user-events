@@ -10,6 +10,7 @@ services:
             liker_external_network:
                 aliases:
                     - liker-stream-processor-user-events.liker
+                    - liker-stream-processor-user-events.codekaizen.net
             liker_stream_processor_user_events_internal_network:
         dns:
             - 8.8.8.8
