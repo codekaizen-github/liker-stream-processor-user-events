@@ -32,7 +32,10 @@ const { app, getWss, applyTo } = expressWs(express());
 
 app.use(
     cors({
-        origin: '*',
+        // origin: '*',
+        origin: [/(.+)?codekaizen\.net(:[0-9]+)?$/],
+        credentials: true,
+        optionsSuccessStatus: 200,
     })
 );
 app.use(express.json());
@@ -59,8 +62,9 @@ function authenticate(
 }
 
 router.ws('/', function (ws, req) {
-    const email = req.query.email;
-    // console.log({ email });
+    console.log('receiving a ws!');
+    const email = req.headers['x-email'];
+    console.log({ email });
     if (email === undefined || typeof email !== 'string') {
         console.log('error authenticating, closing socket');
         ws.close();
@@ -102,10 +106,9 @@ router.ws('/', function (ws, req) {
         );
     });
     ws.on('message', function message(data) {
-        ws.send(`received: ${data}`);
+        console.log(`received: ${data}`);
     });
     console.log('something');
-    ws.send(`something`);
 });
 app.use('/ws', router);
 
@@ -186,6 +189,7 @@ app.post('/streamIn', async (req, res) => {
 });
 
 app.get('/userView', async (req, res) => {
+    console.log({referer: req.headers.referer })
     // Get the user email from the query parameters
     const email = req.query.email;
     if (email === undefined) {
