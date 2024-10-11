@@ -35,6 +35,8 @@ app.use(
         // origin: '*',
         origin: [/(.+)?codekaizen\.net(:[0-9]+)?$/],
         credentials: true,
+        methods: ['POST', 'GET', 'PATCH', 'DELETE', 'OPTIONS'],
+        allowedHeaders: ['Content-Type', 'Authorization'],
         optionsSuccessStatus: 200,
     })
 );
@@ -119,7 +121,7 @@ app.get('/', (req, res) => {
 });
 
 app.get('/userFencingToken', async (req, res) => {
-    const email = req.query?.email;
+    const email = req.headers['x-email'];
     if (email === undefined) {
         return res.status(400).send();
     }
@@ -189,9 +191,9 @@ app.post('/streamIn', async (req, res) => {
 });
 
 app.get('/userView', async (req, res) => {
-    console.log({referer: req.headers.referer })
+    console.log({ referer: req.headers.referer });
     // Get the user email from the query parameters
-    const email = req.query.email;
+    const email = req.headers['x-email'];
     if (email === undefined) {
         return res.status(400).send();
     }
