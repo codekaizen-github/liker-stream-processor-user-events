@@ -79,9 +79,6 @@ router.ws('/', function (ws, req) {
             return;
         }
         const clients = clientsByEmail.get(client.email);
-        if (clients === undefined) {
-            return;
-        }
         clientsByEmail.set(client.email, [
             ...(clientsByEmail.get(client.email) || []),
             ws,
