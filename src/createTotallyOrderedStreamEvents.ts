@@ -84,7 +84,7 @@ export async function createTotallyOrderedStreamEvents(
                 throw new Error('Game not found');
             }
             await updateGame(trx, game.id, {
-                likeCount: game.likeCount,
+                likeCount: eventGame.likeCount,
                 status: 1,
             });
             const users = await findUsers(trx, {});
