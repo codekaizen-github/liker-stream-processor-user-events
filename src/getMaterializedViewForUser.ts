@@ -2,6 +2,7 @@ import { Transaction } from 'kysely';
 import { Database } from './types';
 import { jsonArrayFrom, jsonObjectFrom } from 'kysely/helpers/mysql';
 import { getUpstreamControlForTransaction } from './getUpstreamControl';
+import { findUserById } from './userStore';
 
 export async function getMaterializedViewForUser(
     trx: Transaction<Database>,
@@ -71,9 +72,11 @@ export async function getMaterializedViewForUser(
             failedLikes: game.failedLikes ?? 0,
         });
     }
+    const user = await findUserById(trx, userId);
     return {
         totalOrderId: upstreamControl?.totalOrderId ?? 0,
         userId,
+        user,
         games: gamesArray,
     };
 }
